@@ -1,0 +1,14 @@
+image name: k3s-1.31.5+k3s1-29.1.x86-64.raw
+* sysext version_id: 29.1
+* sysext scope: initrd system portable
+* id: _any
+* sysext_level: glibc-2.41
+* version_id: 20250329
+* architecture: x86-64
+image name: strace-29.1.x86-64.raw
+* sysext version_id: 29.1
+* sysext scope: initrd system portable
+* id: opensuse-microos
+* sysext_level: glibc-2.41
+* version_id: 20250329
+* architecture: x86-64
