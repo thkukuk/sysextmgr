@@ -10,8 +10,8 @@ Directories:
 
 The reason for this is:
 
-1. Storing the images in `/var` means we can share them between snapshots
-2. Using symlinks in `/etc/extensions` means every snapshot:
+* Storing the images in `/var` means we can share them between snapshots
+* Using symlinks in `/etc/extensions` means every snapshot:
   * will only see images fitting with this snapshot
   * rollback will also rollback the sysext images
 
@@ -27,4 +27,4 @@ The reason for this is:
   * Create symlink to `/etc/extionsions` inside the new snapshot
 * Cleanup: check all snapshots for list of used images and remove the no longer needed ones.
 
-For all downloads `systemd-pull` will be used, which is also able to verify the images.
+For all downloads `systemd-pull` will be used, which is also able to verify the downloaded files.
