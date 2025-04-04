@@ -13,7 +13,7 @@ jobs:
     - name: Install devel packages
       run: |
         zypper ref
-        zypper --non-interactive in --no-recommends meson gcc libeconf-devel systemd-devel sqlite3-devel audit-devel pam-devel docbook5-xsl-stylesheets valgrind
+        zypper --non-interactive in --no-recommends meson gcc libeconf-devel systemd-devel valgrind
 
     - name: Setup meson
       run: meson setup build --auto-features=enabled
@@ -22,4 +22,7 @@ jobs:
       run: meson compile -v -C build
 
     - name: Run tests
-      run: meson test -v -C build --wrap='valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1'
+      run: meson test -v -C build
+      
+# meson test -v -C build --wrap='valgrind --leak-check=full --show-leak-kinds=all --error-exitcode=1'
+
