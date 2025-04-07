@@ -6,7 +6,7 @@
 
 #include <systemd/sd-json.h>
 
-struct image_entry {
+struct image_deps {
   char *image_name;
   char *sysext_version_id;
   char *sysext_scope;
@@ -17,11 +17,11 @@ struct image_entry {
   sd_json_variant *sysext;
 };
 
-extern void image_entry_free(struct image_entry *e);
-extern void free_images_list(struct image_entry ***images);
-extern void dump_image_entry(struct image_entry *e);
-extern int parse_image_entry(sd_json_variant *json, struct image_entry *e);
-extern int load_image_entries(const char *path, struct image_entry ***images);
+extern void free_image_deps(struct image_deps *e);
+extern void free_image_deps_list(struct image_deps ***images);
+extern void dump_image_deps(struct image_deps *e);
+extern int parse_image_deps(sd_json_variant *json, struct image_deps **e);
+extern int load_image_json(int fd, const char *path, struct image_deps ***images);
 
 /* main.c */
 extern void oom(void);

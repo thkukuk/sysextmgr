@@ -34,10 +34,9 @@ possible_cc_flags = [
 		  '-funwind-tables',
 		  '-fasynchronous-unwind-tables',
 		  '-fstack-clash-protection',
-		  '-Werror=return-type',
 		  '-Wbad-function-cast',
+                  '-Werror',
 		  '-Wcast-align',
-		  '-Wcast-qual',
                   '-Wformat-security',
 		  '-Winline',
 		  '-Wmissing-declarations',
@@ -46,6 +45,7 @@ possible_cc_flags = [
 		  '-Wshadow',
 		  '-Wstrict-prototypes',
 		  '-Wundef',
+                  '-Wuninitialized',
 		  ]
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 
@@ -55,7 +55,9 @@ libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 inc = include_directories(['include'])
 
 sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
-  'lib/extension-util.c', 'lib/architecture.c', 'lib/string-util-fundamental.c']
+  'src/download.c', 'src/osrelease.c',
+  'lib/extension-util.c', 'lib/architecture.c', 'lib/tmpfile-util.c',
+  'lib/string-util-fundamental.c']
 
 executable('sysext-cli',
            sysext_cli_c,

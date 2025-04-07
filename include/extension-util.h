@@ -12,5 +12,5 @@ extern int extension_release_validate(
                 const char *host_os_release_version_id,
                 const char *host_os_release_sysext_level,
                 const char *host_extension_scope,
-		const struct image_entry *extension, 
+		const struct image_deps *extension, 
 		bool verbose);

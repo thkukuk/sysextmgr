@@ -1,16 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if 0
-#include "alloc-util.h"
-#include "architecture.h"
-#include "chase.h"
-#include "env-util.h"
-#include "extension-util.h"
-#include "log.h"
-#include "os-util.h"
-#include "strv.h"
-#endif
-
+#include <assert.h>
 #include "basics.h"
 #include "sysext-cli.h"
 #include "extension-util.h"
@@ -22,9 +12,11 @@ extension_release_validate(const char *name,
 			   const char *host_os_release_version_id,
 			   const char *host_os_release_sysext_level,
 			   const char *host_extension_scope,
-			   const struct image_entry *extension,
+			   const struct image_deps *extension,
 			   bool verbose)
 {
+  assert(extension);
+
   if (extension->sysext_scope && host_extension_scope)
     {
       if (strstr(extension->sysext_scope, host_extension_scope) == NULL)

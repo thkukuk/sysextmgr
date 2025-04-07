@@ -4,12 +4,26 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdbool.h>
 
 #define _unused_(x) x __attribute__((unused))
 #define _pure_ __attribute__((__pure__))
 #define _const_ __attribute__((__const__))
+
+/* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
+ * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */
+#define TAKE_GENERIC(var, type, nullvalue)                       \
+        ({                                                       \
+                type *_pvar_ = &(var);                           \
+                type _var_ = *_pvar_;                            \
+                type _nullvalue_ = nullvalue;                    \
+                *_pvar_ = _nullvalue_;                           \
+                _var_;                                           \
+        })
+#define TAKE_PTR_TYPE(ptr, type) TAKE_GENERIC(ptr, type, NULL)
+#define TAKE_PTR(ptr) TAKE_PTR_TYPE(ptr, typeof(ptr))
 
 #define mfree(memory)                           \
         ({                                      \
@@ -21,13 +35,20 @@ static inline void freep(void *p) {
         *(void**)p = mfree(*(void**) p);
 }
 
+static inline void closep(int *fd) {
+  if (*fd)
+        close(*fd);
+}
+
 static inline void fclosep(FILE **f) {
   if (*f)
         fclose(*f);
 }
 
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
+#define _cleanup_close_ _cleanup_(closep)
 #define _cleanup_fclose_ _cleanup_(fclosep)
+
 
 /* from string-util-fundamental.h */
 

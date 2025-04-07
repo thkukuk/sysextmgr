@@ -7,52 +7,26 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include <libeconf.h>
 #include <systemd/sd-json.h>
 
 #include "basics.h"
 #include "extension-util.h"
 #include "sysext-cli.h"
+#include "osrelease.h"
+#include "download.h"
+#include "tmpfile-util.h"
 
-static int
-load_os_release(char **id, char **version_id, char **sysext_level)
+/* XXX */
+static size_t
+strv_length(char * const *l)
 {
-  _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
-  econf_err error;
+  size_t n = 0;
 
-  const char *osrelease = NULL;
-  if (access("/etc/os-release", F_OK) == 0)
-    osrelease = "/etc/os-release";
-  else
-    osrelease = "/usr/lib/os-release";
+  // STRV_FOREACH(i, l) XXX
+  for (size_t i = 0; l && l[i] != NULL; i++)
+    n++;
 
-  if ((error = econf_readFile(&key_file, osrelease, "=", "#")))
-    {
-      fprintf(stderr, "ERROR: couldn't read %s: %s\n", osrelease, econf_errString(error));
-      return -1;
-    }
-
-  if ((error = econf_getStringValue(key_file, NULL, "ID", id)))
-    {
-      fprintf(stderr, "ERROR: couldn't get key 'ID' from %s: %s\n", osrelease, econf_errString(error));
-      return -1;
-    }
-
-  if ((error = econf_getStringValue(key_file, NULL, "VERSION_ID", version_id)))
-    {
-      fprintf(stderr, "ERROR: couldn't get key 'VERSION_ID' from %s: %s\n", osrelease, econf_errString(error));
-      return -1;
-    }
-
-  if ((error = econf_getStringValue(key_file, NULL, "SYSEXT_LEVEL", sysext_level))
-      && error != ECONF_NOKEY)
-    {
-      fprintf(stderr, "ERROR: couldn't get key 'SYSEXT_LEVEL' from %s: %s\n",
-	      osrelease, econf_errString(error));
-      return -1;
-    }
-
-  return 0;
+  return n;
 }
 
 static int
@@ -71,7 +45,10 @@ discover_images(const char *path, char ***result)
   assert(result);
 
   int num_dirs = scandir(path, &de, image_filter, alphasort);
-  if(num_dirs > 0)
+  if (num_dirs < 0)
+    return -errno;
+
+  if (num_dirs > 0)
     {
       *result = malloc((num_dirs+1) * sizeof(char *));
       if (*result == NULL)
@@ -91,11 +68,134 @@ discover_images(const char *path, char ***result)
   return 0;
 }
 
+static int
+image_json_from_url(const char *url, const char *name, struct image_deps **res)
+{
+  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-json.XXXXXX";
+  _cleanup_close_ int fd = -EBADF;
+  _cleanup_(freep) char *jsonfn;
+  int r;
+
+  assert(url);
+  assert(res);
+
+  fd = mkostemp_safe(tmpfn);
+
+  jsonfn = malloc(strlen(name) + strlen(".json") + 1);
+  char *p = stpcpy(jsonfn, name);
+  strcpy(p, ".json");
+
+  r = download(url, jsonfn, tmpfn, false /*XXX*/);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to download '%s' from '%s': %s",
+	      jsonfn, url, strerror(-r));
+      return r;
+    }
+
+  _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
+  r = load_image_json(fd, tmpfn, &images);
+  if (r < 0)
+    return r;
+
+  if (images == NULL || images[0] == NULL)
+    {
+      fprintf(stderr, "No entry with dependencies found (%s)!\n", jsonfn);
+      return -ENOENT;
+    }
+
+  if (images[1] == NULL)
+      *res = TAKE_PTR(images[0]);
+  else
+    {
+      /* XXX go through the list and search the corret image */
+      /* XXX we cannot use TAKE_PTR else the rest of the list will not be free'd */
+      fprintf(stderr, "More than one entry found, not implemented yet!\n");
+      exit(EXIT_FAILURE);
+    }
+
+  return 0;
+}
+
+static int
+image_list_from_url(const char *url, char ***result)
+{
+  _cleanup_(unlink_tempfilep) char name[] = "/tmp/sysext-SHA256SUMS.XXXXXX";
+  _cleanup_close_ int fd = -EBADF;
+  FILE *fp = NULL;
+  int r;
+
+  assert(url);
+  assert(result);
+
+  fd = mkostemp_safe(name);
+
+  r = download(url, "SHA256SUMS", name, false /*XXX*/);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %s",
+	      url, strerror(-r));
+      return r;
+    }
+
+  fp = fdopen(fd, "r");
+  if (!fp)
+    return -errno;
+
+  size_t cur_entry = 0, max_entry = 10;
+  *result = malloc((max_entry + 1) * sizeof(char *));
+  if (*result == NULL)
+    oom();
+  (*result)[0] = NULL;
+
+  _cleanup_(freep) char *line = NULL;
+  size_t size = 0;
+  ssize_t nread;
+
+  while ((nread = getline(&line, &size, fp)) != -1)
+    {
+      /* Remove trailing newline character */
+      if (nread && line[nread-1] == '\n')
+	line[nread-1] = '\0';
+
+      if (endswith(line, ".raw") || endswith(line, ".img"))
+	{
+	  /* get image name, skip SHA256SUM hash and spaces */
+	  char *p = strchr(line, ' ');
+	  while (*p == ' ')
+	    ++p;
+
+	  if (cur_entry == max_entry)
+	    {
+	      max_entry = max_entry * 2;
+	      *result = realloc(*result, (max_entry + 1) * sizeof(char *));
+	      if (*result == NULL)
+		oom();
+	    }
+	  (*result)[cur_entry] = strdup(p);
+	  if ((*result)[cur_entry] == NULL)
+	    oom();
+	  cur_entry++;
+	  (*result)[cur_entry] = NULL;
+	}
+    }
+
+  return 0;
+}
+
+struct image_entry {
+  char *name;
+  struct image_deps *deps;
+  bool remote;
+  bool installed;
+  bool compatible;
+};
+
 int
 main_list(int argc, char **argv)
 {
   struct option const longopts[] = {
-    {"json", required_argument, NULL, 'j'},
+    {"url", required_argument, NULL, 'u'},
     {NULL, 0, NULL, '\0'}
   };
   _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
@@ -103,17 +203,18 @@ main_list(int argc, char **argv)
   _cleanup_(freep) char *osrelease_id = NULL;
   _cleanup_(freep) char *osrelease_sysext_level = NULL;
   _cleanup_(freep) char *osrelease_version_id = NULL;
-  char *jf = NULL;
+  struct image_entry **images = NULL;
+  char *url = NULL;
   int c, r;
 
   /* XXX We need to mount the image and read the extension release file! */
 
-  while ((c = getopt_long(argc, argv, "j:", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "u:", longopts, NULL)) != -1)
     {
       switch (c)
         {
-        case 'j':
-          jf = optarg;
+        case 'u':
+          url = optarg;
           break;
         default:
           usage(EXIT_FAILURE);
@@ -127,9 +228,9 @@ main_list(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  if (jf == NULL)
+  if (url == NULL)
     {
-      fprintf(stderr, "No json input file specified!\n");
+      fprintf(stderr, "No url specified!\n");
       usage(EXIT_FAILURE);
     }
 
@@ -137,10 +238,52 @@ main_list(int argc, char **argv)
   if (r < 0)
     return EXIT_FAILURE;
 
+  char **list = NULL;
+  r = image_list_from_url(url, &list);
+  if (r < 0)
+    {
+      fprintf(stderr, "Fetching image list from '%s' failed: %s\n",
+	      url, strerror(-r));
+      return -r;
+    }
+
+  size_t n = strv_length(list);
+  if (n > 0)
+    {
+      images = malloc((n+1) * sizeof(struct image_entry *));
+      if (images == NULL)
+	oom();
+      images[n] = NULL;
+
+      for (size_t i = 0; i < n; i++)
+	{
+	  images[i] = calloc(1, sizeof(struct image_entry));
+	  if (images[i] == NULL)
+	    oom();
+	  images[i]->name = list[i];
+	  images[i]->remote = true;
+
+	  r = image_json_from_url(url, list[i], &(images[i]->deps));
+	  if (r < 0)
+	    return -r;
+
+	  if (images[i]->deps)
+	    images[i]->compatible = extension_release_validate(images[i]->name,
+							       osrelease_id, osrelease_version_id,
+							       osrelease_sysext_level, "system",
+							       images[i]->deps, true /* XXX */);
+	}
+      free(list);
+    }
+
   char **result = NULL;
   r = discover_images("/var/lib/sysext-store", &result);
   if (r < 0)
-    return EXIT_FAILURE;
+    {
+      fprintf(stderr, "Scan local images failed: %s\n",
+	      strerror(-r));
+      return -r;
+    }
 
   if (result == NULL)
     {
@@ -148,32 +291,25 @@ main_list(int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
-  _cleanup_(free_images_list) struct image_entry **images = NULL;
-
-  r = load_image_entries(jf, &images);
-  if (r != 0)
-    return EXIT_FAILURE;
-
-  for (size_t i = 0; result[i] != NULL; i++)
+  printf (" A I C Name\n");
+  for (size_t i = 0; images[i] != NULL; i++)
     {
-      int valid = 0;
-
-      for (size_t j = 0; images && images[j] != NULL; j++)
-	{
-	  if (streq(result[i], images[j]->image_name))
-	    {
-	      valid = extension_release_validate(images[j]->image_name,
-						 osrelease_id, osrelease_version_id,
-						 osrelease_sysext_level, "system",
-						 images[j], false /* XXX */);
-	      break;
-	    }
-	}
-      if (valid)
-	printf("%s: compatible\n", result[i]);
+      /* XXX Use table_print_with_pager */
+      if (images[i]->remote)
+	printf(" x");
       else
-	printf("%s: incompatible\n", result[i]);
+	printf("  ");
+      if (images[i]->installed)
+	printf(" x");
+      else
+	printf("  ");
+      if (images[i]->compatible)
+	printf(" x");
+      else
+	printf("  ");
+      printf(" %s\n", images[i]->name);
     }
+  printf("A = available, I = installed, C = commpatible\n");
 
   return EXIT_SUCCESS;
 }

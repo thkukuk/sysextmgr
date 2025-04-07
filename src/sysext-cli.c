@@ -23,23 +23,31 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysext-cli [command] [options]\n", output);
-  fputs("Commands: create-json, dump-json, merge-json\n\n", output);
+  fputs("Commands: create-json, dump-json, merge-json, list\n\n", output);
 
-  fputs("create-json: create json file from release file\n", output);
+  fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
   fputs("  -n, --name          Name of the image\n", output);
   fputs("  -i, --input         Input file in KEY=VALUE format\n", output);
   fputs("  -o, --output        Output file in json format\n", output);
   fputs("\n", output);
 
+  fputs("dump-json - dump content of json file\n", output);
   fputs("Options for dump-json:\n", output);
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
   fputs("\n", output);
 
+  fputs("merge-json - merge serveral json files into one json array\n", output);
   fputs("Options for merge-json:\n", output);
   fputs("  -o, --output FILE     Output file in json format\n", output);
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
   fputs("\n", output);
+
+  fputs("list - list all images and if they are compatible\n", output);
+  fputs("Options for merge-json:\n", output);
+  fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("\n", output);
+
 
   fputs("Generic options:\n", output);
   fputs("  -h, --help          Display this help message and exit\n", output);
@@ -285,14 +293,14 @@ main_dump_json(int argc, char **argv)
 
   for (int i = optind; i < argc; i++)
     {
-      _cleanup_(free_images_list) struct image_entry **images = NULL;
+      _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
 
-      r = load_image_entries(argv[i], &images);
-      if (r != 0)
+      r = load_image_json(AT_FDCWD, argv[i], &images);
+      if (r < 0)
 	return EXIT_FAILURE;
 
       for (size_t j = 0; images && images[j] != NULL; j++)
-	dump_image_entry(images[j]);
+	dump_image_deps(images[j]);
     }
 
   return EXIT_SUCCESS;
