@@ -57,7 +57,7 @@ inc = include_directories(['include'])
 sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
   'src/download.c', 'src/osrelease.c',
   'lib/extension-util.c', 'lib/architecture.c', 'lib/tmpfile-util.c',
-  'lib/string-util-fundamental.c']
+  'lib/string-util-fundamental.c', 'lib/strv.c' ]
 
 executable('sysext-cli',
            sysext_cli_c,

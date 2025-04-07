@@ -11,6 +11,7 @@
 #define _unused_(x) x __attribute__((unused))
 #define _pure_ __attribute__((__pure__))
 #define _const_ __attribute__((__const__))
+#define _sentinel_ __attribute__((__sentinel__))
 
 /* Takes inspiration from Rust's Option::take() method: reads and returns a pointer, but at the same time
  * resets it to NULL. See: https://doc.rust-lang.org/std/option/enum.Option.html#method.take */

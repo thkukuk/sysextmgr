@@ -35,7 +35,7 @@ free_image_deps(struct image_deps *e)
   e->sysext = sd_json_variant_unref(e->sysext);
 }
 
-static void
+void
 free_image_depsp(struct image_deps **e)
 {
   if (!e || !*e)

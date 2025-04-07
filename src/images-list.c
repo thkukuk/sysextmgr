@@ -15,19 +15,7 @@
 #include "osrelease.h"
 #include "download.h"
 #include "tmpfile-util.h"
-
-/* XXX */
-static size_t
-strv_length(char * const *l)
-{
-  size_t n = 0;
-
-  // STRV_FOREACH(i, l) XXX
-  for (size_t i = 0; l && l[i] != NULL; i++)
-    n++;
-
-  return n;
-}
+#include "strv.h"
 
 static int
 image_filter(const struct dirent *de)
@@ -122,7 +110,7 @@ image_list_from_url(const char *url, char ***result)
 {
   _cleanup_(unlink_tempfilep) char name[] = "/tmp/sysext-SHA256SUMS.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
-  FILE *fp = NULL;
+  _cleanup_fclose_ FILE *fp = NULL;
   int r;
 
   assert(url);
@@ -191,6 +179,21 @@ struct image_entry {
   bool compatible;
 };
 
+static void
+free_image_entry_list(struct image_entry ***list)
+{
+  if (!list)
+    return;
+
+  for (size_t i = 0; *list && (*list)[i] != NULL; i++)
+    {
+      free((*list)[i]->name);
+      free_image_depsp(&((*list)[i]->deps));
+      free((*list)[i]);
+    }
+  free(*list);
+}
+
 int
 main_list(int argc, char **argv)
 {
@@ -203,7 +206,7 @@ main_list(int argc, char **argv)
   _cleanup_(freep) char *osrelease_id = NULL;
   _cleanup_(freep) char *osrelease_sysext_level = NULL;
   _cleanup_(freep) char *osrelease_version_id = NULL;
-  struct image_entry **images = NULL;
+  _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
   char *url = NULL;
   int c, r;
 
@@ -276,7 +279,7 @@ main_list(int argc, char **argv)
       free(list);
     }
 
-  char **result = NULL;
+  _cleanup_strv_free_  char **result = NULL;
   r = discover_images("/var/lib/sysext-store", &result);
   if (r < 0)
     {
