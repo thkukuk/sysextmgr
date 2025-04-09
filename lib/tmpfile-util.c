@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+// based on systemd v258
+
 #include <errno.h>
 #include <assert.h>
 #include <stdlib.h>
