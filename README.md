@@ -65,7 +65,7 @@ The solution is to provide a `<image>.json` file with the following structure:´
     "SYSEXT_LEVEL": "glibc-2.41",
     "VERSION_ID": "20250329",
     "SYSEXT_VERSION_ID": "29.1",
-    "SYSEXT_SCOPE": "initrd system portable",
+    "SYSEXT_SCOPE": "system",
     "ARCHITECTURE": "x86-64"
   }
 }
