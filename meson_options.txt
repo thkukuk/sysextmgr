@@ -1,0 +1,2 @@
+option('sysextstoredir', type : 'string', value : '/var/lib/sysext-store',
+       description : 'directory for sysext images')
