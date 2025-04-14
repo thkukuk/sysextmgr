@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <assert.h>
 #include <unistd.h>
 #include <libeconf.h>
 
@@ -13,6 +14,10 @@ load_ext_release(const char *name, const char *fn, struct image_deps **res)
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_(free_image_depsp) struct image_deps *e = NULL;
   econf_err error;
+
+  assert(name);
+  assert(fn);
+  assert(res);
 
   e = calloc(1, sizeof(struct image_deps));
   if (e == NULL)

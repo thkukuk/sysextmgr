@@ -54,3 +54,19 @@ dump_image_deps(struct image_deps *e)
   printf("* version_id: %s\n", e->version_id);
   printf("* architecture: %s\n", e->architecture);
 }
+
+void
+free_image_entry_list(struct image_entry ***list)
+{
+  if (!list)
+    return;
+
+  for (size_t i = 0; *list && (*list)[i] != NULL; i++)
+    {
+      free((*list)[i]->name);
+      free_image_depsp(&((*list)[i]->deps));
+      free((*list)[i]);
+    }
+  free(*list);
+}
+
