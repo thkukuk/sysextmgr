@@ -4,7 +4,7 @@
 
 #include <assert.h>
 #include "basics.h"
-#include "sysext-cli.h"
+#include "image-deps.h"
 #include "extension-util.h"
 #include "architecture.h"
 
