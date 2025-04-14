@@ -10,13 +10,7 @@
 #include "basics.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
-
-static inline int RET_NERRNO(int ret) {
-  if (ret < 0)
-    return -errno;
-
-  return ret;
-}
+#include "errno-util.h"
 
 /* This is much like mkostemp() but is subject to umask(). */
 int mkostemp_safe(char *pattern) {

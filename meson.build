@@ -38,7 +38,6 @@ possible_cc_flags = [
                   '-Werror',
 		  '-Wcast-align',
                   '-Wformat-security',
-		  '-Winline',
 		  '-Wmissing-declarations',
 		  '-Wmissing-prototypes',
 		  '-Wnested-externs',
@@ -49,15 +48,18 @@ possible_cc_flags = [
 		  ]
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 
+sysextstoredir = get_option('sysextstoredir')
+conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
+
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 
 inc = include_directories(['include'])
 
 sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
-  'src/download.c', 'src/osrelease.c',
-  'lib/extension-util.c', 'lib/architecture.c', 'lib/tmpfile-util.c',
-  'lib/string-util-fundamental.c', 'lib/strv.c' ]
+  'src/download.c', 'src/osrelease.c', 'src/extrelease.c', 'src/extract.c',
+  'lib/tmpfile-util.c', 'lib/string-util-fundamental.c', 'lib/strv.c',
+  'lib/extension-util.c', 'lib/architecture.c']
 
 executable('sysext-cli',
            sysext_cli_c,

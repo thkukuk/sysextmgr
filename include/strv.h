@@ -116,6 +116,10 @@ char** strv_new_internal(const char *x, ...) _sentinel_;
 char** strv_new_ap(const char *x, va_list ap);
 #define strv_new(...) strv_new_internal(__VA_ARGS__, NULL)
 
+#define STRV_MAKE(...) ((char**) ((const char*[]) { __VA_ARGS__, NULL }))
+#define STRV_MAKE_EMPTY ((char*[1]) { NULL })
+#define STRV_MAKE_CONST(...) ((const char* const*) ((const char*[]) { __VA_ARGS__, NULL }))
+
 /* #define STRV_IGNORE ((const char *) POINTER_MAX)
 
 static inline const char* STRV_IFNOTNULL(const char *x) {

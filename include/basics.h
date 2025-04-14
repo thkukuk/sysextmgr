@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define _unused_(x) x __attribute__((unused))
+#define _unused_ __attribute__((unused))
 #define _pure_ __attribute__((__pure__))
 #define _const_ __attribute__((__const__))
 #define _sentinel_ __attribute__((__sentinel__))
@@ -25,6 +25,7 @@
         })
 #define TAKE_PTR_TYPE(ptr, type) TAKE_GENERIC(ptr, type, NULL)
 #define TAKE_PTR(ptr) TAKE_PTR_TYPE(ptr, typeof(ptr))
+#define TAKE_FD(fd) TAKE_GENERIC(fd, int, -EBADF)
 
 #define mfree(memory)                           \
         ({                                      \
@@ -49,6 +50,7 @@ static inline void fclosep(FILE **f) {
 #define _cleanup_(x) __attribute__((__cleanup__(x)))
 #define _cleanup_close_ _cleanup_(closep)
 #define _cleanup_fclose_ _cleanup_(fclosep)
+#define _cleanup_free_ _cleanup_(freep)
 
 
 /* from string-util-fundamental.h */
@@ -58,11 +60,17 @@ static inline void fclosep(FILE **f) {
 #define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)
 #define strncaseeq(a, b, n) (strncasecmp((a), (b), (n)) == 0)
 
+static inline const char *strempty(const char *s) {
+        return s ?:"";
+}
+
+static inline const char* strna(const char *s) {
+        return s ?: "n/a";
+}
+
 extern char *startswith(const char *s, const char *prefix) _pure_;
 extern char *endswith(const char *s, const char *suffix) _pure_;
-
 
 static inline bool isempty(const char *a) {
         return !a || a[0] == '\0';
 }
-

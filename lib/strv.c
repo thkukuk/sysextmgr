@@ -27,7 +27,6 @@
 
 #include "strv.h"
 
-#if 0
 char* strv_find(char * const *l, const char *name) {
         assert(name);
 
@@ -48,6 +47,7 @@ char* strv_find_case(char * const *l, const char *name) {
         return NULL;
 }
 
+#if 0
 char* strv_find_prefix(char * const *l, const char *name) {
         assert(name);
 

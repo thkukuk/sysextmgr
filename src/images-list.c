@@ -13,7 +13,9 @@
 #include "extension-util.h"
 #include "sysext-cli.h"
 #include "osrelease.h"
+#include "extrelease.h"
 #include "download.h"
+#include "extract.h"
 #include "tmpfile-util.h"
 #include "strv.h"
 
@@ -57,11 +59,38 @@ discover_images(const char *path, char ***result)
 }
 
 static int
+image_read_metadata(const char *name, struct image_deps **res)
+{
+  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-extrelease.XXXXXX";
+  _cleanup_close_ int fd = -EBADF;
+  int r;
+
+  assert(name);
+  assert(res);
+
+  fd = mkostemp_safe(tmpfn);
+
+  r = extract(SYSEXT_STORE_DIR, name, fd);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to extract extension-release from '%s': %s",
+	      name, strerror(-r));
+      return r;
+    }
+
+  r = load_ext_release(name, tmpfn, res);
+  if (r < 0)
+    return r;
+
+  return 0;
+}
+
+static int
 image_json_from_url(const char *url, const char *name, struct image_deps **res)
 {
   _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-json.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
-  _cleanup_(freep) char *jsonfn;
+  _cleanup_free_ char *jsonfn = NULL;
   int r;
 
   assert(url);
@@ -194,6 +223,26 @@ free_image_entry_list(struct image_entry ***list)
   free(*list);
 }
 
+/* compare the image names, but move NULL to the end
+   of the list */
+static int
+image_cmp(const void *a, const void *b)
+{
+  const struct image_entry *const *i_a = a;
+  const struct image_entry *const *i_b = b;
+
+  if (a == NULL && b == NULL)
+    return 0;
+
+  if (a == NULL)
+    return 1;
+
+  if (b == NULL)
+    return -1;
+
+  return strcmp((*i_a)->name, (*i_b)->name);
+}
+
 int
 main_list(int argc, char **argv)
 {
@@ -209,8 +258,6 @@ main_list(int argc, char **argv)
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
   char *url = NULL;
   int c, r;
-
-  /* XXX We need to mount the image and read the extension release file! */
 
   while ((c = getopt_long(argc, argv, "u:", longopts, NULL)) != -1)
     {
@@ -241,7 +288,7 @@ main_list(int argc, char **argv)
   if (r < 0)
     return EXIT_FAILURE;
 
-  char **list = NULL;
+  _cleanup_strv_free_ char **list = NULL;
   r = image_list_from_url(url, &list);
   if (r < 0)
     {
@@ -250,20 +297,22 @@ main_list(int argc, char **argv)
       return -r;
     }
 
-  size_t n = strv_length(list);
-  if (n > 0)
+  size_t n_remote = strv_length(list);
+  if (n_remote > 0)
     {
-      images = malloc((n+1) * sizeof(struct image_entry *));
+      images = malloc((n_remote+1) * sizeof(struct image_entry *));
       if (images == NULL)
 	oom();
-      images[n] = NULL;
+      images[n_remote] = NULL;
 
-      for (size_t i = 0; i < n; i++)
+      for (size_t i = 0; i < n_remote; i++)
 	{
 	  images[i] = calloc(1, sizeof(struct image_entry));
 	  if (images[i] == NULL)
 	    oom();
-	  images[i]->name = list[i];
+	  images[i]->name = strdup(list[i]);
+	  if (images[i]->name == NULL)
+	    oom();
 	  images[i]->remote = true;
 
 	  r = image_json_from_url(url, list[i], &(images[i]->deps));
@@ -276,11 +325,10 @@ main_list(int argc, char **argv)
 							       osrelease_sysext_level, "system",
 							       images[i]->deps, true /* XXX */);
 	}
-      free(list);
     }
 
-  _cleanup_strv_free_  char **result = NULL;
-  r = discover_images("/var/lib/sysext-store", &result);
+  list = strv_free(list);
+  r = discover_images("/var/lib/sysext-store", &list);
   if (r < 0)
     {
       fprintf(stderr, "Scan local images failed: %s\n",
@@ -288,16 +336,65 @@ main_list(int argc, char **argv)
       return -r;
     }
 
-  if (result == NULL)
+  if (list == NULL)
     {
       printf("No images found\n");
       return EXIT_SUCCESS;
     }
 
+  size_t n_local = strv_length(list);
+  if (n_local > 0)
+    {
+      size_t n;
+
+      images = realloc(images, (n_remote + n_local + 1) * sizeof(struct image_entry *));
+      if (images == NULL)
+	oom();
+      for (n = n_remote; n < (n_remote + n_local + 1); n++)
+	images[n] = NULL;
+
+      n = n_remote; /* append new images at the end of the list */
+      STRV_FOREACH(name, list)
+	{
+	  bool found = false;
+
+	  /* check if we know already the image */
+	  for (size_t i = 0; i < n_remote; i++)
+	    if (streq(*name, images[i]->name))
+	      {
+		images[i]->installed = true;
+		found = true;
+		break;
+	      }
+
+	  if (!found)
+	    {
+	      images[n] = calloc(1, sizeof(struct image_entry));
+	      if (images[n] == NULL)
+		oom();
+	      images[n]->name = strdup(*name);
+	      if (images[n]->name == NULL)
+		oom();
+	      images[n]->installed = true;
+	      image_read_metadata(*name, &(images[n]->deps));
+
+	      if (images[n]->deps)
+		images[n]->compatible = extension_release_validate(images[n]->name,
+								   osrelease_id, osrelease_version_id,
+								   osrelease_sysext_level, "system",
+								   images[n]->deps, true /* XXX */);
+	      n++;
+	    }
+	}
+    }
+
+  /* sort list */
+  qsort(images, n_local+n_remote, sizeof(struct image_entry *), image_cmp);
+
+  /* XXX Use table_print_with_pager */
   printf (" A I C Name\n");
   for (size_t i = 0; images[i] != NULL; i++)
     {
-      /* XXX Use table_print_with_pager */
       if (images[i]->remote)
 	printf(" x");
       else
