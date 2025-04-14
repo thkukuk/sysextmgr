@@ -45,7 +45,7 @@ download(const char *url, const char *fn, const char *destfn, bool verify_signat
 {
   _cleanup_(freep) char *fullurl = NULL;
   pid_t pid;
-  int r;
+  int status, r;
 
   r = join_path(url, fn, &fullurl);
   if (r < 0)
@@ -76,6 +76,12 @@ download(const char *url, const char *fn, const char *destfn, bool verify_signat
     }
 
   /* r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG); */
-  waitpid (pid, NULL, 0);
+  r = waitpid (pid, &status, 0);
+  if (r == -1)
+    return -errno;
+
+  if (WIFEXITED(status))
+    return WEXITSTATUS(status);
+
   return 0;
 }

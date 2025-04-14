@@ -19,6 +19,8 @@
 #include "tmpfile-util.h"
 #include "strv.h"
 
+static bool arg_verbose = false;
+
 static int
 image_filter(const struct dirent *de)
 {
@@ -73,9 +75,15 @@ image_read_metadata(const char *name, struct image_deps **res)
   r = extract(SYSEXT_STORE_DIR, name, fd);
   if (r < 0)
     {
-      fprintf(stderr, "Failed to extract extension-release from '%s': %s",
+      fprintf(stderr, "Failed to extract extension-release from '%s': %s\n",
 	      name, strerror(-r));
       return r;
+    }
+  else if (r > 0)
+    {
+      fprintf(stderr, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)\n",
+	      name, r);
+      return -EINVAL;
     }
 
   r = load_ext_release(name, tmpfn, res);
@@ -248,6 +256,7 @@ main_list(int argc, char **argv)
 {
   struct option const longopts[] = {
     {"url", required_argument, NULL, 'u'},
+    {"verbose", no_argument, NULL, 'v'},
     {NULL, 0, NULL, '\0'}
   };
   _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
@@ -259,13 +268,16 @@ main_list(int argc, char **argv)
   char *url = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "u:", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "u:v", longopts, NULL)) != -1)
     {
       switch (c)
         {
         case 'u':
           url = optarg;
           break;
+	case 'v':
+	  arg_verbose = true;
+	  break;
         default:
           usage(EXIT_FAILURE);
           break;
@@ -278,23 +290,21 @@ main_list(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  if (url == NULL)
-    {
-      fprintf(stderr, "No url specified!\n");
-      usage(EXIT_FAILURE);
-    }
-
   r = load_os_release(&osrelease_id, &osrelease_version_id, &osrelease_sysext_level);
   if (r < 0)
     return EXIT_FAILURE;
 
   _cleanup_strv_free_ char **list = NULL;
-  r = image_list_from_url(url, &list);
-  if (r < 0)
+
+  if (url)
     {
-      fprintf(stderr, "Fetching image list from '%s' failed: %s\n",
-	      url, strerror(-r));
-      return -r;
+      r = image_list_from_url(url, &list);
+      if (r < 0)
+	{
+	  fprintf(stderr, "Fetching image list from '%s' failed: %s\n",
+		  url, strerror(-r));
+	  return -r;
+	}
     }
 
   size_t n_remote = strv_length(list);
@@ -323,7 +333,7 @@ main_list(int argc, char **argv)
 	    images[i]->compatible = extension_release_validate(images[i]->name,
 							       osrelease_id, osrelease_version_id,
 							       osrelease_sysext_level, "system",
-							       images[i]->deps, true /* XXX */);
+							       images[i]->deps, arg_verbose);
 	}
     }
 
@@ -336,7 +346,7 @@ main_list(int argc, char **argv)
       return -r;
     }
 
-  if (list == NULL)
+  if (n_remote == 0 && list == NULL)
     {
       printf("No images found\n");
       return EXIT_SUCCESS;
@@ -376,13 +386,15 @@ main_list(int argc, char **argv)
 	      if (images[n]->name == NULL)
 		oom();
 	      images[n]->installed = true;
-	      image_read_metadata(*name, &(images[n]->deps));
+	      r = image_read_metadata(*name, &(images[n]->deps));
+	      if (r < 0)
+		return r;
 
 	      if (images[n]->deps)
 		images[n]->compatible = extension_release_validate(images[n]->name,
 								   osrelease_id, osrelease_version_id,
 								   osrelease_sysext_level, "system",
-								   images[n]->deps, true /* XXX */);
+								   images[n]->deps, arg_verbose);
 	      n++;
 	    }
 	}

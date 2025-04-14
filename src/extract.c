@@ -21,7 +21,7 @@ extract(const char *path, const char *name, int outfd)
 {
   _cleanup_free_ char *fn = NULL, *erf = NULL;
   pid_t pid;
-  int r;
+  int status, r;
 
   if (!endswith(name, ".raw") && !endswith(name, ".img"))
     return -EINVAL;
@@ -65,6 +65,12 @@ extract(const char *path, const char *name, int outfd)
     }
 
   /* r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG); */
-  waitpid (pid, NULL, 0);
+  r = waitpid (pid, &status, 0);
+  if (r == -1)
+    return -errno;
+
+  if (WIFEXITED(status))
+    return WEXITSTATUS(status);
+
   return 0;
 }

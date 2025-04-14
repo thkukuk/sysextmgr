@@ -46,6 +46,7 @@ usage(int retval)
   fputs("list - list all images and if they are compatible\n", output);
   fputs("Options for merge-json:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
 
