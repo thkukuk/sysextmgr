@@ -14,8 +14,6 @@
 #include "sysext-cli.h"
 #include "osrelease.h"
 #include "extrelease.h"
-#include "download.h"
-#include "extract.h"
 #include "tmpfile-util.h"
 #include "strv.h"
 #include "images-list.h"
@@ -39,7 +37,7 @@ image_cmp(const void *a, const void *b)
   if (b == NULL)
     return -1;
 
-  return strcmp((*i_a)->name, (*i_b)->name);
+  return strcmp((*i_a)->deps->image_name, (*i_b)->deps->image_name);
 }
 
 int
@@ -51,7 +49,6 @@ main_list(int argc, char **argv)
     {NULL, 0, NULL, '\0'}
   };
   _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-  _cleanup_fclose_ FILE *of = NULL;
   _cleanup_(freep) char *osrelease_id = NULL;
   _cleanup_(freep) char *osrelease_sysext_level = NULL;
   _cleanup_(freep) char *osrelease_version_id = NULL;
@@ -102,7 +99,7 @@ main_list(int argc, char **argv)
 	{
 	  for (size_t i = 0; i < n_remote; i++)
 	    if (images_remote[i]->deps)
-	      images_remote[i]->compatible = extension_release_validate(images_remote[i]->name,
+	      images_remote[i]->compatible = extension_release_validate(images_remote[i]->deps->image_name,
 									osrelease_id, osrelease_version_id,
 									osrelease_sysext_level, "system",
 									images_remote[i]->deps, arg_verbose);
@@ -135,7 +132,7 @@ main_list(int argc, char **argv)
       images[n] = TAKE_PTR(images_remote[i]);
 
       if (images[n]->deps)
-	images[n]->compatible = extension_release_validate(images[n]->name,
+	images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
 							   osrelease_id, osrelease_version_id,
 							   osrelease_sysext_level, "system",
 							   images[n]->deps, arg_verbose);
@@ -149,7 +146,7 @@ main_list(int argc, char **argv)
       /* check if we know already the image */
       for (size_t j = 0; j < n_remote; j++)
 	{
-	  if (streq(images_local[i]->name, images[j]->name))
+	  if (streq(images_local[i]->deps->image_name, images[j]->deps->image_name))
 	    {
 	      images[j]->installed = true;
 	      found = true;
@@ -162,7 +159,7 @@ main_list(int argc, char **argv)
 	  images[n] = TAKE_PTR(images_local[i]);
 
 	  if (images[n]->deps)
-	    images[n]->compatible = extension_release_validate(images[n]->name,
+	    images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
 							       osrelease_id, osrelease_version_id,
 							       osrelease_sysext_level, "system",
 							       images[n]->deps, arg_verbose);
@@ -189,7 +186,7 @@ main_list(int argc, char **argv)
 	printf(" x");
       else
 	printf("  ");
-      printf(" %s\n", images[i]->name);
+      printf(" %s\n", images[i]->deps->image_name);
     }
   printf("A = available, I = installed, C = commpatible\n");
 

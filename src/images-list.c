@@ -60,33 +60,33 @@ discover_images(const char *path, char ***result)
 }
 
 static int
-image_read_metadata(const char *name, struct image_deps **res)
+image_read_metadata(const char *image_name, struct image_deps **res)
 {
   _cleanup_(free_image_depsp) struct image_deps *image = NULL;
   _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-extrelease.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
   int r;
 
-  assert(name);
+  assert(image_name);
   assert(res);
 
   fd = mkostemp_safe(tmpfn);
 
-  r = extract(SYSEXT_STORE_DIR, name, fd);
+  r = extract(SYSEXT_STORE_DIR, image_name, fd);
   if (r < 0)
     {
       fprintf(stderr, "Failed to extract extension-release from '%s': %s\n",
-	      name, strerror(-r));
+	      image_name, strerror(-r));
       return r;
     }
   else if (r > 0)
     {
       fprintf(stderr, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)\n",
-	      name, r);
+	      image_name, r);
       return -EINVAL;
     }
 
-  r = load_ext_release(name, tmpfn, &image);
+  r = load_ext_release(image_name, tmpfn, &image);
   if (r < 0)
     return r;
 
@@ -97,7 +97,7 @@ image_read_metadata(const char *name, struct image_deps **res)
 }
 
 static int
-image_json_from_url(const char *url, const char *name, struct image_deps **res)
+image_json_from_url(const char *url, const char *image_name, struct image_deps **res)
 {
   _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-json.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
@@ -109,8 +109,8 @@ image_json_from_url(const char *url, const char *name, struct image_deps **res)
 
   fd = mkostemp_safe(tmpfn);
 
-  jsonfn = malloc(strlen(name) + strlen(".json") + 1);
-  char *p = stpcpy(jsonfn, name);
+  jsonfn = malloc(strlen(image_name) + strlen(".json") + 1);
+  char *p = stpcpy(jsonfn, image_name);
   strcpy(p, ".json");
 
   r = download(url, jsonfn, tmpfn, false /*XXX*/);
@@ -148,7 +148,7 @@ image_json_from_url(const char *url, const char *name, struct image_deps **res)
 static int
 image_list_from_url(const char *url, char ***result)
 {
-  _cleanup_(unlink_tempfilep) char name[] = "/tmp/sysext-SHA256SUMS.XXXXXX";
+  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-SHA256SUMS.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
   _cleanup_fclose_ FILE *fp = NULL;
   int r;
@@ -156,9 +156,9 @@ image_list_from_url(const char *url, char ***result)
   assert(url);
   assert(result);
 
-  fd = mkostemp_safe(name);
+  fd = mkostemp_safe(tmpfn);
 
-  r = download(url, "SHA256SUMS", name, false /*XXX*/);
+  r = download(url, "SHA256SUMS", tmpfn, false /*XXX*/);
   if (r < 0)
     {
       fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %s",
@@ -236,6 +236,8 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr)
 
       for (size_t i = 0; i < n; i++)
 	{
+	  char *p;
+
 	  images[i] = calloc(1, sizeof(struct image_entry));
 	  if (images[i] == NULL)
 	    return -ENOMEM;
@@ -243,6 +245,17 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr)
 	  if (images[i]->name == NULL)
 	    return -ENOMEM;
 	  images[i]->remote = true;
+
+	  /* create "debug-tools" from "debug-tools-23.7.x86-64.raw" */
+	  p = strrchr(images[i]->name, '.'); /* raw */
+	  if (p)
+	    *p = '\0';
+	  p = strrchr(images[i]->name, '.'); /* arch */
+	  if (p)
+	    *p = '\0';
+	  p = strrchr(images[i]->name, '-'); /* version */
+	  if (p)
+	    *p = '\0';
 
 	  r = image_json_from_url(url, list[i], &(images[i]->deps));
 	  if (r < 0)
@@ -283,12 +296,26 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr)
 
       for (size_t i = 0; i < n; i++)
 	{
+	  char *p;
+
 	  images[i] = calloc(1, sizeof(struct image_entry));
 	  if (images[i] == NULL)
 	    return -ENOMEM;
 	  images[i]->name = strdup(list[i]);
 	  if (images[i]->name == NULL)
 	    return -ENOMEM;
+
+	  /* create "debug-tools" from "debug-tools-23.7.x86-64.raw" */
+	  p = strrchr(images[i]->name, '.'); /* raw */
+	  if (p)
+	    *p = '\0';
+	  p = strrchr(images[i]->name, '.'); /* arch */
+	  if (p)
+	    *p = '\0';
+	  p = strrchr(images[i]->name, '-'); /* version */
+	  if (p)
+	    *p = '\0';
+
 	  images[i]->installed = true;
 
 	  r = image_read_metadata(list[i], &(images[i]->deps));

@@ -5,7 +5,7 @@
 #include <systemd/sd-json.h>
 
 struct image_deps {
-  char *image_name;
+  char *image_name;         /* full image name, e.g. "gcc-30.3.x86-64.raw" */
   char *sysext_version_id;
   char *sysext_scope;
   char *id;
@@ -16,7 +16,7 @@ struct image_deps {
 };
 
 struct image_entry {
-  char *name;
+  char *name;              /* name of the image, e.g. "gcc" */
   struct image_deps *deps;
   bool remote;
   bool installed;
