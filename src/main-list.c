@@ -112,8 +112,8 @@ main_list(int argc, char **argv)
   r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local);
   if (r < 0)
     {
-      fprintf(stderr, "Fetching image data from '%s' failed: %s\n",
-	      url, strerror(-r));
+      fprintf(stderr, "Searching for images in '%s' failed: %s\n",
+	      SYSEXT_STORE_DIR, strerror(-r));
       return r;
     }
 
@@ -169,8 +169,6 @@ main_list(int argc, char **argv)
 	  n++;
 	}
     }
-
-  printf("Entries n=%li\n", n);
 
   /* sort list */
   qsort(images, n, sizeof(struct image_entry *), image_cmp);
