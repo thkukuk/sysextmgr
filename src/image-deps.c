@@ -55,6 +55,16 @@ dump_image_deps(struct image_deps *e)
   printf("* architecture: %s\n", e->architecture);
 }
 
+struct image_entry *
+free_image_entry(struct image_entry *list)
+{
+  free(list->name);
+  free_image_depsp(&(list->deps));
+  free(list);
+
+  return NULL;
+}
+
 void
 free_image_entry_list(struct image_entry ***list)
 {
@@ -63,10 +73,7 @@ free_image_entry_list(struct image_entry ***list)
 
   for (size_t i = 0; *list && (*list)[i] != NULL; i++)
     {
-      free((*list)[i]->name);
-      free_image_depsp(&((*list)[i]->deps));
-      free((*list)[i]);
+      (*list)[i] = free_image_entry((*list)[i]);
     }
   free(*list);
 }
-

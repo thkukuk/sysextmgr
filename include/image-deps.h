@@ -19,6 +19,7 @@ struct image_entry {
   char *name;              /* name of the image, e.g. "gcc" */
   struct image_deps *deps;
   bool remote;
+  bool local;
   bool installed;
   bool compatible;
 };
@@ -27,4 +28,5 @@ extern void free_image_deps(struct image_deps *e);
 extern void free_image_depsp(struct image_deps **e);
 extern void free_image_deps_list(struct image_deps ***images);
 extern void dump_image_deps(struct image_deps *e);
+extern struct image_entry *free_image_entry(struct image_entry *list);
 extern void free_image_entry_list(struct image_entry ***list);
