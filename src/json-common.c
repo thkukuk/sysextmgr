@@ -36,7 +36,7 @@ parse_image_deps(sd_json_variant *json, struct image_deps **res)
     { "sysext",            SD_JSON_VARIANT_OBJECT,  sd_json_dispatch_variant, offsetof(struct image_deps, sysext), 0 },
     {}
   };
-  _cleanup_(free_image_depsp) struct image_deps *e = NULL; /* XXX add _cleanup_ */
+  _cleanup_(free_image_depsp) struct image_deps *e = NULL;
   int r;
 
   assert(res);
@@ -102,8 +102,6 @@ load_image_json(int fd, const char *path, struct image_deps ***images)
 	  if (r < 0)
 	    return r;
         }
-
-      return 0;
     }
   else
     {
@@ -112,6 +110,10 @@ load_image_json(int fd, const char *path, struct image_deps ***images)
 	oom();
       (*images)[1] = NULL;
 
-      return parse_image_deps(json, &(*images)[0]);
+      r = parse_image_deps(json, &(*images)[0]);
+      if (r < 0)
+	return r;
     }
+
+  return 0;
 }

@@ -39,7 +39,7 @@ free_image_deps_list(struct image_deps ***images)
     return;
 
   for (size_t i = 0; *images && (*images)[i] != NULL; i++)
-    free_image_deps((*images)[i]);
+    free_image_depsp(&(*images)[i]);
 
   free(*images);
 }
