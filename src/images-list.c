@@ -6,6 +6,7 @@
 #include <getopt.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include <systemd/sd-json.h>
 
@@ -21,6 +22,57 @@
 #include "images-list.h"
 
 static int
+readlink_malloc(const char *path, const char *name, char **ret)
+{
+  _cleanup_free_ char *fn = NULL;
+  _cleanup_free_ char *buf = NULL;
+  ssize_t nbytes, bufsiz;
+  struct stat sb;
+  int r;
+
+  r = join_path(path, name, &fn);
+  if (r < 0)
+    return r;
+
+  if (lstat(fn, &sb) == -1)
+    {
+      perror("lstat");
+      return -errno;
+    }
+
+  /* Add one to the link size, so that we can determine whether
+     the buffer returned by readlink() was truncated. */
+  bufsiz = sb.st_size + 1;
+
+  /* Some magic symlinks under (for example) /proc and /sys
+     report 'st_size' as zero. In that case, take PATH_MAX as
+     a "good enough" estimate. */
+  if (sb.st_size == 0)
+    bufsiz = PATH_MAX;
+
+  buf = malloc(bufsiz);
+  if (buf == NULL)
+    return -ENOMEM;
+
+  nbytes = readlink(fn, buf, bufsiz);
+  if (nbytes == -1)
+    return -errno;
+
+  if (nbytes == bufsiz)
+    {
+      fprintf(stderr, "Returned buffer may have been truncated\n");
+      exit(EXIT_FAILURE);
+    }
+
+  /* It doesn't contain a terminating null byte ('\0'). */
+  buf[nbytes] = '\0';
+
+  *ret = TAKE_PTR(buf);
+
+  return 0;
+}
+
+static int
 image_filter(const struct dirent *de)
 {
   if (endswith(de->d_name, ".raw") || endswith(de->d_name, ".img"))
@@ -28,10 +80,11 @@ image_filter(const struct dirent *de)
   return 0;
 }
 
-static int
+int
 discover_images(const char *path, char ***result)
 {
   struct dirent **de = NULL;
+  int r;
 
   assert(result);
 
@@ -48,7 +101,24 @@ discover_images(const char *path, char ***result)
 
       for (int i = 0; i < num_dirs; i++)
       {
-	(*result)[i] = strdup(de[i]->d_name);
+	if (de[i]->d_type == DT_LNK)
+	  {
+	    _cleanup_free_ char *fn = NULL;
+	    char *p;
+
+	    r = readlink_malloc(path, de[i]->d_name, &fn);
+	    if (r < 0)
+	      return r;
+
+	    p = strrchr(fn, '/');
+	    if (p)
+	      (*result)[i] = strdup(++p);
+	    else
+	      (*result)[i] = strdup(fn);
+	  }
+	else
+	  (*result)[i] = strdup(de[i]->d_name);
+
 	if ((*result)[i] == NULL)
 	  oom();
 	free(de[i]);
@@ -316,7 +386,7 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr)
 	  if (p)
 	    *p = '\0';
 
-	  images[i]->installed = true;
+	  images[i]->local = true;
 
 	  r = image_read_metadata(list[i], &(images[i]->deps));
 	  if (r < 0)

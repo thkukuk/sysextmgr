@@ -7,8 +7,6 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include <systemd/sd-json.h>
-
 #include "basics.h"
 #include "extension-util.h"
 #include "sysext-cli.h"
@@ -48,14 +46,13 @@ main_list(int argc, char **argv)
     {"verbose", no_argument, NULL, 'v'},
     {NULL, 0, NULL, '\0'}
   };
-  _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
   _cleanup_(freep) char *osrelease_id = NULL;
   _cleanup_(freep) char *osrelease_sysext_level = NULL;
   _cleanup_(freep) char *osrelease_version_id = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_remote = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_local = NULL;
-  size_t n_remote = 0, n_local = 0;
+  size_t n_remote = 0, n_local = 0, n_etc = 0;
   char *url = NULL;
   int c, r;
 
@@ -106,6 +103,7 @@ main_list(int argc, char **argv)
 	}
     }
 
+  /* local available images */
   r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local);
   if (r < 0)
     {
@@ -119,6 +117,17 @@ main_list(int argc, char **argv)
       printf("No images found\n");
       return EXIT_SUCCESS;
     }
+
+  /* list of "installed" images visible to systemd-sysext */
+  _cleanup_strv_free_ char **list_etc = NULL;
+  r = discover_images(EXTENSIONS_DIR, &list_etc);
+  if (r < 0)
+    {
+      fprintf(stderr, "Searching for images in '%s' failed: %s\n",
+	      EXTENSIONS_DIR, strerror(-r));
+      return r;
+    }
+  n_etc = strv_length(list_etc);
 
   /* merge remote and local images */
   images = calloc((n_remote + n_local + 1), sizeof(struct image_entry *));
@@ -143,12 +152,19 @@ main_list(int argc, char **argv)
     {
       bool found = false;
 
+      for (size_t j = 0; j < n_etc; j++)
+	{
+	  if (streq(list_etc[j], images_local[i]->deps->image_name))
+	    images_local[i]->installed = true;
+	}
+
       /* check if we know already the image */
       for (size_t j = 0; j < n_remote; j++)
 	{
 	  if (streq(images_local[i]->deps->image_name, images[j]->deps->image_name))
 	    {
-	      images[j]->installed = true;
+	      images[j]->local = true;
+	      images[j]->installed = images_local[i]->installed;
 	      found = true;
 	      break;
 	    }
@@ -165,16 +181,22 @@ main_list(int argc, char **argv)
 							       images[n]->deps, arg_verbose);
 	  n++;
 	}
+      else /* Free unused images_local[i] */
+	images_local[i] = free_image_entry(images_local[i]);
     }
 
   /* sort list */
   qsort(images, n, sizeof(struct image_entry *), image_cmp);
 
   /* XXX Use table_print_with_pager */
-  printf (" A I C Name\n");
+  printf (" R L I C Name\n");
   for (size_t i = 0; images[i] != NULL; i++)
     {
       if (images[i]->remote)
+	printf(" x");
+      else
+	printf("  ");
+      if (images[i]->local)
 	printf(" x");
       else
 	printf("  ");
@@ -188,7 +210,7 @@ main_list(int argc, char **argv)
 	printf("  ");
       printf(" %s\n", images[i]->deps->image_name);
     }
-  printf("A = available, I = installed, C = commpatible\n");
+  printf("R = remote, L = local, I = installed, C = commpatible\n");
 
   return EXIT_SUCCESS;
 }
