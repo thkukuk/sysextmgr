@@ -34,6 +34,7 @@ usage(int retval)
 
   fputs("check - Check if there are newer images available\n", output);
   fputs("Options for check:\n", output);
+  fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
   fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
