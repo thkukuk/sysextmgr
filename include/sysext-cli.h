@@ -15,5 +15,8 @@ extern int load_image_json(int fd, const char *path, struct image_deps ***images
 extern void oom(void);
 extern void usage(int retval);
 
-/* images-list.c */
+/* main-list.c */
 extern int main_list(int argc, char **argv);
+
+/* main-check.c */
+extern int main_check(int argc, char **argv);

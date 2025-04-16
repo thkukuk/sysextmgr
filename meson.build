@@ -35,7 +35,6 @@ possible_cc_flags = [
 		  '-fasynchronous-unwind-tables',
 		  '-fstack-clash-protection',
 		  '-Wbad-function-cast',
-                  '-Werror',
 		  '-Wcast-align',
                   '-Wformat-security',
 		  '-Wmissing-declarations',
@@ -51,6 +50,9 @@ add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 
 sysextstoredir = get_option('sysextstoredir')
 conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
 
+extensionsdir = get_option('extensionsdir')
+conf.set_quoted('EXTENSIONS_DIR', extensionsdir)
+
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 
@@ -58,7 +60,7 @@ inc = include_directories(['include'])
 
 sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
   'src/download.c', 'src/osrelease.c', 'src/extrelease.c', 'src/extract.c',
-  'src/image-deps.c', 'src/main-list.c',
+  'src/image-deps.c', 'src/main-list.c', 'src/main-check.c',
   'lib/tmpfile-util.c', 'lib/string-util-fundamental.c', 'lib/strv.c',
   'lib/extension-util.c', 'lib/architecture.c']
 

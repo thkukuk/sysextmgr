@@ -1,2 +1,4 @@
 option('sysextstoredir', type : 'string', value : '/var/lib/sysext-store',
        description : 'directory for sysext images')
+option('extensionsdir', type : 'string', value : '/etc/extensions',
+       description : 'Directory where systemd-sysext looks for images')

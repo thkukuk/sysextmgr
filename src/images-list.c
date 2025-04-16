@@ -282,11 +282,12 @@ image_list_from_url(const char *url, char ***result)
 }
 
 int
-image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr)
+image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
+		      const char *filter)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
-  size_t n = 0;
+  size_t n = 0, pos = 0;
   int r;
 
   assert(url);
@@ -299,42 +300,51 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr)
   n = strv_length(list);
   if (n > 0)
     {
-      images = malloc((n+1) * sizeof(struct image_entry *));
+      images = calloc((n+1), sizeof(struct image_entry *));
       if (images == NULL)
 	return -ENOMEM;
-      images[n] = NULL;
 
       for (size_t i = 0; i < n; i++)
 	{
+	  _cleanup_free_ char *name = NULL;
 	  char *p;
 
-	  images[i] = calloc(1, sizeof(struct image_entry));
-	  if (images[i] == NULL)
+	  name = strdup(list[i]);
+	  if (name == NULL)
 	    return -ENOMEM;
-	  images[i]->name = strdup(list[i]);
-	  if (images[i]->name == NULL)
-	    return -ENOMEM;
-	  images[i]->remote = true;
 
 	  /* create "debug-tools" from "debug-tools-23.7.x86-64.raw" */
-	  p = strrchr(images[i]->name, '.'); /* raw */
+	  p = strrchr(name, '.'); /* raw */
 	  if (p)
 	    *p = '\0';
-	  p = strrchr(images[i]->name, '.'); /* arch */
+	  p = strrchr(name, '.'); /* arch */
 	  if (p)
 	    *p = '\0';
-	  p = strrchr(images[i]->name, '-'); /* version */
+	  p = strrchr(name, '-'); /* version */
 	  if (p)
 	    *p = '\0';
 
-	  r = image_json_from_url(url, list[i], &(images[i]->deps));
+	  if (filter && !streq(name, filter))
+	    continue;
+
+	  images[pos] = calloc(1, sizeof(struct image_entry));
+	  if (images[pos] == NULL)
+	    return -ENOMEM;
+	  images[pos]->name = strdup(name);
+	  if (images[pos]->name == NULL)
+	    return -ENOMEM;
+	  images[pos]->remote = true;
+
+	  r = image_json_from_url(url, list[i], &(images[pos]->deps));
 	  if (r < 0)
 	    return -r;
+
+	  pos++;
 	}
     }
 
   if (nr)
-    *nr = n;
+    *nr = pos;
   if (images)
     *res = TAKE_PTR(images);
 
@@ -342,11 +352,11 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr)
 }
 
 int
-image_local_metadata(const char *store, struct image_entry ***res, size_t *nr)
+image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, const char *filter)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
-  size_t n = 0;
+  size_t n = 0, pos = 0;
   int r;
 
   r = discover_images(store, &list);
@@ -359,43 +369,52 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr)
   n = strv_length(list);
   if (n > 0)
     {
-      images = malloc((n+1) * sizeof(struct image_entry *));
+      images = calloc((n+1), sizeof(struct image_entry *));
       if (images == NULL)
 	return -ENOMEM;
-      images[n] = NULL;
 
       for (size_t i = 0; i < n; i++)
 	{
+	  _cleanup_free_ char *name = NULL;
 	  char *p;
 
-	  images[i] = calloc(1, sizeof(struct image_entry));
-	  if (images[i] == NULL)
-	    return -ENOMEM;
-	  images[i]->name = strdup(list[i]);
-	  if (images[i]->name == NULL)
+	  name = strdup(list[i]);
+	  if (name == NULL)
 	    return -ENOMEM;
 
 	  /* create "debug-tools" from "debug-tools-23.7.x86-64.raw" */
-	  p = strrchr(images[i]->name, '.'); /* raw */
+	  p = strrchr(name, '.'); /* raw */
 	  if (p)
 	    *p = '\0';
-	  p = strrchr(images[i]->name, '.'); /* arch */
+	  p = strrchr(name, '.'); /* arch */
 	  if (p)
 	    *p = '\0';
-	  p = strrchr(images[i]->name, '-'); /* version */
+	  p = strrchr(name, '-'); /* version */
 	  if (p)
 	    *p = '\0';
 
-	  images[i]->local = true;
+	  if (filter && !streq(name, filter))
+	    continue;
 
-	  r = image_read_metadata(list[i], &(images[i]->deps));
+	  images[pos] = calloc(1, sizeof(struct image_entry));
+	  if (images[pos] == NULL)
+	    return -ENOMEM;
+	  images[pos]->name = strdup(name);
+	  if (images[pos]->name == NULL)
+	    return -ENOMEM;
+
+	  images[pos]->local = true;
+
+	  r = image_read_metadata(list[pos], &(images[pos]->deps));
 	  if (r < 0)
 	    return r;
+
+	  pos++;
 	}
     }
 
   if (nr)
-    *nr = n;
+    *nr = pos;
   if (images)
     *res = TAKE_PTR(images);
 

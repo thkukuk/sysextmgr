@@ -84,7 +84,7 @@ main_list(int argc, char **argv)
 
   if (url)
     {
-      r = image_remote_metadata(url, &images_remote, &n_remote);
+      r = image_remote_metadata(url, &images_remote, &n_remote, NULL);
       if (r < 0)
 	{
 	  fprintf(stderr, "Fetching image data from '%s' failed: %s\n",
@@ -104,7 +104,7 @@ main_list(int argc, char **argv)
     }
 
   /* local available images */
-  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local);
+  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, NULL);
   if (r < 0)
     {
       fprintf(stderr, "Searching for images in '%s' failed: %s\n",

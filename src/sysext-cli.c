@@ -23,13 +23,19 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysext-cli [command] [options]\n", output);
-  fputs("Commands: create-json, dump-json, merge-json, list\n\n", output);
+  fputs("Commands: create-json, check, dump-json, merge-json, list\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
   fputs("  -n, --name          Name of the image\n", output);
   fputs("  -i, --input         Input file in KEY=VALUE format\n", output);
   fputs("  -o, --output        Output file in json format\n", output);
+  fputs("\n", output);
+
+  fputs("check - Check if there are newer images available\n", output);
+  fputs("Options for check:\n", output);
+  fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
@@ -48,7 +54,6 @@ usage(int retval)
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
   fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
-
 
   fputs("Generic options:\n", output);
   fputs("  -h, --help          Display this help message and exit\n", output);
@@ -321,6 +326,8 @@ main(int argc, char **argv)
     usage(EXIT_FAILURE);
   else if (strcmp(argv[1], "create-json") == 0)
     return main_create_json(--argc, ++argv);
+  else if (strcmp(argv[1], "check") == 0)
+    return main_check(--argc, ++argv);
   else if (strcmp(argv[1], "merge-json") == 0)
     return main_merge_json(--argc, ++argv);
   else if (strcmp(argv[1], "dump-json") == 0)
