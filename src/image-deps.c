@@ -8,6 +8,9 @@
 void
 free_image_deps(struct image_deps *e)
 {
+  if (!e)
+    return;
+
   e->image_name = mfree(e->image_name);
   e->sysext_version_id = mfree(e->sysext_version_id);
   e->sysext_scope = mfree(e->sysext_scope);
@@ -36,10 +39,8 @@ free_image_deps_list(struct image_deps ***images)
     return;
 
   for (size_t i = 0; *images && (*images)[i] != NULL; i++)
-    {
-      free_image_deps((*images)[i]);
-      free((*images)[i]);
-    }
+    free_image_deps((*images)[i]);
+
   free(*images);
 }
 
@@ -55,14 +56,21 @@ dump_image_deps(struct image_deps *e)
   printf("* architecture: %s\n", e->architecture);
 }
 
-struct image_entry *
-free_image_entry(struct image_entry *list)
+void
+free_image_entry(struct image_entry *e)
 {
-  free(list->name);
-  free_image_depsp(&(list->deps));
-  free(list);
+  free(e->name);
+  free_image_depsp(&(e->deps));
+}
 
-  return NULL;
+void
+free_image_entryp(struct image_entry **e)
+{
+  if (!e || !*e)
+    return;
+
+  free_image_entry(*e);
+  *e = mfree(*e);
 }
 
 void
@@ -72,8 +80,7 @@ free_image_entry_list(struct image_entry ***list)
     return;
 
   for (size_t i = 0; *list && (*list)[i] != NULL; i++)
-    {
-      (*list)[i] = free_image_entry((*list)[i]);
-    }
+    free_image_entryp(&(*list)[i]);
+
   free(*list);
 }

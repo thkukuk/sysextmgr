@@ -182,7 +182,7 @@ main_list(int argc, char **argv)
 	  n++;
 	}
       else /* Free unused images_local[i] */
-	images_local[i] = free_image_entry(images_local[i]);
+	free_image_entryp(&images_local[i]);
     }
 
   /* sort list */
