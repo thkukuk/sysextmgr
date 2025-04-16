@@ -15,33 +15,6 @@
 
 static bool arg_verbose = false;
 
-static int
-version_cmp(const char *s1, const char *s2)
-{
-  return strcmp(s1,s2); /* XXX this needs proper version number parsing */
-}
-
-static int
-check_if_newer(struct image_entry *old, struct image_entry *new, struct image_entry **update)
-{
-  assert(update);
-
-  if (streq(old->deps->architecture,
-	    new->deps->architecture) &&
-      version_cmp(old->deps->sysext_version_id,
-		  new->deps->sysext_version_id) < 0)
-    {
-      /* don't update with older version */
-      if (*update &&
-	  version_cmp((*update)->deps->sysext_version_id,
-		      new->deps->sysext_version_id) >= 0)
-	return 0;
-
-      *update = new;
-    }
-  return 0;
-}
-
 int
 main_check(int argc, char **argv)
 {
@@ -99,37 +72,9 @@ main_check(int argc, char **argv)
 
   for (size_t n = 0; n < n_etc; n++)
     {
-      struct image_entry *update = NULL;
-      _cleanup_(free_image_entry_list) struct image_entry **images_remote = NULL;
-      _cleanup_(free_image_entry_list) struct image_entry **images_local = NULL;
-      size_t n_remote = 0, n_local = 0;
+      _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      if (url)
-	{
-	  r = image_remote_metadata(url, &images_remote, &n_remote, images_etc[n]->name);
-	  if (r < 0)
-	    {
-	      fprintf(stderr, "Fetching image data from '%s' failed: %s\n",
-		      url, strerror(-r));
-	      return r;
-	    }
-	}
-
-      for (size_t i = 0; i < n_remote; i++)
-	check_if_newer(images_etc[n], images_remote[i], &update);
-
-      /* now do the same with local images */
-      r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, images_etc[n]->name);
-      if (r < 0)
-	{
-	  fprintf(stderr, "Searching for images in '%s' failed: %s\n",
-		  SYSEXT_STORE_DIR, strerror(-r));
-	  return r;
-	}
-
-      for (size_t i = 0; i < n_local; i++)
-	check_if_newer(images_etc[n], images_local[i], &update);
-
+      r = get_latest_version(images_etc[n], &update, url);
       if (update)
 	{
 	  /* XXX pretty print */
