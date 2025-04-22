@@ -405,7 +405,7 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, c
 
 	  images[pos]->local = true;
 
-	  r = image_read_metadata(list[pos], &(images[pos]->deps));
+	  r = image_read_metadata(list[i], &(images[pos]->deps));
 	  if (r < 0)
 	    return r;
 
