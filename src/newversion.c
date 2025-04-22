@@ -20,9 +20,11 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
 {
   assert(update);
 
-  if (streq(old->deps->architecture,
-	    new->deps->architecture) &&
-      version_cmp(old->deps->sysext_version_id,
+  if (!streq(old->deps->architecture,
+	    new->deps->architecture))
+    return 0;
+
+  if (version_cmp(old->deps->sysext_version_id,
 		  new->deps->sysext_version_id) < 0)
     {
       /* don't update with older version */
@@ -39,8 +41,24 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
       (*update)->name = strdup(new->name);
       (*update)->deps = TAKE_PTR(new->deps);
       (*update)->local = new->local;
+      (*update)->remote = new->remote;
       (*update)->installed = new->installed;
       (*update)->compatible = new->compatible;
+    }
+  else if (*update &&
+	   streq(old->deps->image_name, new->deps->image_name) &&
+	   version_cmp(old->deps->sysext_version_id,
+		       new->deps->sysext_version_id) == 0)
+    /* both images are identical, make sure flags are identical, too */
+    {
+      if (new->local)
+	(*update)->local = new->local;
+      if (new->remote)
+	(*update)->remote = new->remote;
+      if (new->installed)
+	(*update)->installed = new->installed;
+      if (new->compatible)
+	(*update)->compatible = new->compatible;
     }
   return 0;
 }
