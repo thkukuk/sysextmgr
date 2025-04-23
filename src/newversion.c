@@ -36,8 +36,9 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
 	  free_image_entry(*update);
 	}
 
-      /* XXX check ENOMEM */
       *update = calloc(1, sizeof(struct image_entry));
+      if (*update == NULL)
+	return -ENOMEM;
       (*update)->name = strdup(new->name);
       (*update)->deps = TAKE_PTR(new->deps);
       (*update)->local = new->local;
@@ -47,8 +48,8 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
     }
   else if (*update &&
 	   streq(old->deps->image_name, new->deps->image_name) &&
-	   version_cmp(old->deps->sysext_version_id,
-		       new->deps->sysext_version_id) == 0)
+	   streq(old->deps->sysext_version_id,
+		 new->deps->sysext_version_id) == 0)
     /* both images are identical, make sure flags are identical, too */
     {
       if (new->local)
@@ -84,7 +85,14 @@ get_latest_version(struct image_entry *curr, struct image_entry **new, const cha
     }
 
   for (size_t i = 0; i < n_remote; i++)
-    check_if_newer(curr, images_remote[i], &update);
+    {
+      r = check_if_newer(curr, images_remote[i], &update);
+      if (r < 0)
+	{
+	  fprintf(stderr, "Image check failed: %s\n", strerror(-r));
+	  return r;
+	}
+    }
 
   /* now do the same with local images */
   r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, curr->name);
@@ -96,7 +104,14 @@ get_latest_version(struct image_entry *curr, struct image_entry **new, const cha
     }
 
   for (size_t i = 0; i < n_local; i++)
-    check_if_newer(curr, images_local[i], &update);
+    {
+      r = check_if_newer(curr, images_local[i], &update);
+      if (r < 0)
+	{
+	  fprintf(stderr, "Image check failed: %s\n", strerror(-r));
+	  return r;
+	}
+    }
 
   if (update)
     *new = TAKE_PTR(update);
