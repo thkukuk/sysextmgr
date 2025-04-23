@@ -44,6 +44,7 @@ usage(int retval)
   fputs("install - Install newest compatible sysext image\n", output);
   fputs("Options for install:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  <name 1> <name 2>...  Names of the images to be installed\n", output);
   fputs("\n", output);
 
   fputs("list - list all images and if they are compatible\n", output);
