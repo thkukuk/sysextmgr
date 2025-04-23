@@ -24,3 +24,6 @@ extern int main_check(int argc, char **argv);
 
 /* main-update.c */
 extern int main_update(int argc, char **argv);
+
+/* main-install.c */
+extern int main_install(int argc, char **argv);

@@ -23,7 +23,7 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysext-cli [command] [options]\n", output);
-  fputs("Commands: create-json, check, dump-json, list, merge-json, update\n\n", output);
+  fputs("Commands: create-json, check, dump-json, install, list, merge-json, update\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
@@ -41,6 +41,11 @@ usage(int retval)
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
   fputs("\n", output);
 
+  fputs("install - Install newest compatible sysext image\n", output);
+  fputs("Options for install:\n", output);
+  fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("\n", output);
+
   fputs("list - list all images and if they are compatible\n", output);
   fputs("Options for merge-json:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
@@ -56,7 +61,6 @@ usage(int retval)
   fputs("update - Check if there are newer images available and update them\n", output);
   fputs("Options for update:\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
-
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
   fputs("\n", output);
 
@@ -333,14 +337,16 @@ main(int argc, char **argv)
     return main_create_json(--argc, ++argv);
   else if (strcmp(argv[1], "check") == 0)
     return main_check(--argc, ++argv);
-  else if (strcmp(argv[1], "update") == 0)
-    return main_update(--argc, ++argv);
-  else if (strcmp(argv[1], "merge-json") == 0)
-    return main_merge_json(--argc, ++argv);
   else if (strcmp(argv[1], "dump-json") == 0)
     return main_dump_json(--argc, ++argv);
+  else if (strcmp(argv[1], "install") == 0)
+    return main_install(--argc, ++argv);
   else if (strcmp(argv[1], "list") == 0)
     return main_list(--argc, ++argv);
+  else if (strcmp(argv[1], "merge-json") == 0)
+    return main_merge_json(--argc, ++argv);
+  else if (strcmp(argv[1], "update") == 0)
+    return main_update(--argc, ++argv);
 
   while ((c = getopt_long(argc, argv, "hv", longopts, NULL)) != -1)
     {
