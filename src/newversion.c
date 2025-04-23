@@ -12,7 +12,7 @@
 static int
 version_cmp(const char *s1, const char *s2)
 {
-  return strcmp(s1,s2); /* XXX this needs proper version number parsing */
+  return strcmp(s1, s2); /* XXX this needs proper version number parsing */
 }
 
 static int
@@ -20,12 +20,32 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
 {
   assert(update);
 
+  if (!streq(old->name, new->name))
+      return 0;
+
   if (!streq(old->deps->architecture,
 	    new->deps->architecture))
     return 0;
 
-  if (version_cmp(old->deps->sysext_version_id,
-		  new->deps->sysext_version_id) < 0)
+  /* both images are identical, make sure flags are identical, too */
+  if (*update &&
+      streq((*update)->deps->image_name, new->deps->image_name) &&
+      streq((*update)->deps->sysext_version_id,
+	    new->deps->sysext_version_id))
+    {
+      if (new->local)
+	(*update)->local = new->local;
+      if (new->remote)
+	(*update)->remote = new->remote;
+      if (new->installed)
+	(*update)->installed = new->installed;
+      if (new->compatible)
+	(*update)->compatible = new->compatible;
+    }
+  /* old->deps->sysext_version_id is not set if this is image is not installed */
+  else if (old->deps->sysext_version_id == NULL ||
+	   version_cmp(old->deps->sysext_version_id,
+		       new->deps->sysext_version_id) < 0)
     {
       /* don't update with older version */
       if (*update)
@@ -33,7 +53,7 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
 	  if (version_cmp((*update)->deps->sysext_version_id,
 			  new->deps->sysext_version_id) >= 0)
 	    return 0;
-	  free_image_entry(*update);
+	  free_image_entryp(update);
 	}
 
       *update = calloc(1, sizeof(struct image_entry));
@@ -46,21 +66,7 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
       (*update)->installed = new->installed;
       (*update)->compatible = new->compatible;
     }
-  else if (*update &&
-	   streq(old->deps->image_name, new->deps->image_name) &&
-	   streq(old->deps->sysext_version_id,
-		 new->deps->sysext_version_id) == 0)
-    /* both images are identical, make sure flags are identical, too */
-    {
-      if (new->local)
-	(*update)->local = new->local;
-      if (new->remote)
-	(*update)->remote = new->remote;
-      if (new->installed)
-	(*update)->installed = new->installed;
-      if (new->compatible)
-	(*update)->compatible = new->compatible;
-    }
+
   return 0;
 }
 
