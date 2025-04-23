@@ -23,7 +23,7 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysext-cli [command] [options]\n", output);
-  fputs("Commands: create-json, check, dump-json, merge-json, list\n\n", output);
+  fputs("Commands: create-json, check, dump-json, list, merge-json, update\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
@@ -35,13 +35,16 @@ usage(int retval)
   fputs("check - Check if there are newer images available\n", output);
   fputs("Options for check:\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
-  fputs("  -u, --url URL         Remote directory with sysext images\n", output);
-  fputs("  -v, --verbose         Verbose output\n", output);
-  fputs("\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
   fputs("Options for dump-json:\n", output);
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
+  fputs("\n", output);
+
+  fputs("list - list all images and if they are compatible\n", output);
+  fputs("Options for merge-json:\n", output);
+  fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("merge-json - merge serveral json files into one json array\n", output);
@@ -50,10 +53,11 @@ usage(int retval)
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
   fputs("\n", output);
 
-  fputs("list - list all images and if they are compatible\n", output);
-  fputs("Options for merge-json:\n", output);
+  fputs("update - Check if there are newer images available and update them\n", output);
+  fputs("Options for update:\n", output);
+  fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
+
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
-  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("Generic options:\n", output);
@@ -329,6 +333,8 @@ main(int argc, char **argv)
     return main_create_json(--argc, ++argv);
   else if (strcmp(argv[1], "check") == 0)
     return main_check(--argc, ++argv);
+  else if (strcmp(argv[1], "update") == 0)
+    return main_update(--argc, ++argv);
   else if (strcmp(argv[1], "merge-json") == 0)
     return main_merge_json(--argc, ++argv);
   else if (strcmp(argv[1], "dump-json") == 0)
