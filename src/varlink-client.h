@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include <errno.h>
+#include <systemd/sd-varlink.h>
+
+#define VARLINK_IS_NOT_RUNNING(r) (r == -ECONNREFUSED || r == -ENOENT || r == -ECONNRESET || r == -EACCES)
+
+extern int connect_to_sysextmgrd(sd_varlink **ret, const char *socket);
+extern int varlink_list_images (const char *url);

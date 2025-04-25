@@ -1,0 +1,29 @@
+[Unit]
+Description=sysextmgr daemon
+Documentation=man:sysextmgrd(8)
+
+[Service]
+Type=notify
+Environment="SYSEXTMGRD_OPTS="
+EnvironmentFile=-/etc/default/sysextmgrd
+ExecStart=/usr/libexec/sysextmgrd -s $SYSEXTMGRD_OPTS
+IPAddressDeny=any
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+PrivateTmp=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=yes
+ProtectKernelLogs=yes
+ProtectKernelModules=yes
+ProtectKernelTunables=yes
+#ProtectProc=invisible
+ProtectSystem=strict
+RestrictRealtime=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes

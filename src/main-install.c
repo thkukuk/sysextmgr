@@ -76,7 +76,7 @@ main_install(int argc, char **argv)
 	.deps = &wanted_deps
       };
 
-      r = get_latest_version(&wanted, &new, url);
+      r = get_latest_version(&wanted, &new, url, true /* verify_signature XXX */);
       if (r < 0)
 	return r;
 

@@ -2,40 +2,195 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <getopt.h>
-#include <unistd.h>
-#include <dirent.h>
+#include <stdbool.h>
 
 #include "basics.h"
-#include "extension-util.h"
 #include "sysext-cli.h"
-#include "osrelease.h"
-#include "extrelease.h"
-#include "tmpfile-util.h"
-#include "strv.h"
-#include "images-list.h"
+#include "varlink-client.h"
 
 static bool arg_verbose = false;
 
-/* compare the image names, but move NULL to the end
-   of the list */
-static int
-image_cmp(const void *a, const void *b)
+struct list_images {
+  bool success;
+  char *error;
+  sd_json_variant *contents_json;
+};
+
+static void
+list_images_free (struct list_images *var)
 {
-  const struct image_entry *const *i_a = a;
-  const struct image_entry *const *i_b = b;
+  var->error = mfree(var->error);
+  var->contents_json = sd_json_variant_unref(var->contents_json);
+}
 
-  if (a == NULL && b == NULL)
-    return 0;
+struct image_data {
+  char *name;              /* name of the image, e.g. "gcc" */
+  char *image_name;         /* full image name, e.g. "gcc-30.3.x86-64.raw" */
+  char *sysext_version_id;
+  char *sysext_scope;
+  char *id;
+  char *sysext_level;
+  char *version_id;
+  char *architecture;
+  bool remote;
+  bool local;
+  bool installed;
+  bool compatible;
 
-  if (a == NULL)
-    return 1;
+};
 
-  if (b == NULL)
-    return -1;
+static void
+image_data_free (struct image_data *var)
+{
+  var->name = mfree(var->name);
+  var->image_name = mfree(var->image_name);
+}
 
-  return strcmp((*i_a)->deps->image_name, (*i_b)->deps->image_name);
+int
+varlink_list_images (const char *url)
+{
+  _cleanup_(list_images_free) struct list_images p = {
+    .success = false,
+    .error = NULL,
+    .contents_json = NULL,
+  };
+  static const sd_json_dispatch_field dispatch_table[] = {
+    { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct list_images, success), 0 },
+    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct list_images, error), 0 },
+    { "Images",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct list_images, contents_json), 0 },
+    {}
+  };
+  _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+  sd_json_variant *result;
+  const char *error_id = NULL;
+  int r;
+
+  r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
+  if (r < 0)
+    return r;
+
+  if (url)
+    {
+      r = sd_json_buildo(&params,
+			 SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
+      if (r < 0)
+	{
+	  fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+	}
+    }
+  r = sd_varlink_call(link, "org.openSUSE.sysextmgr.ListImages", params, &result, &error_id);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to call ListImages method: %s\n", strerror(-r));
+      return r;
+    }
+  /* dispatch before checking error_id, we may need the result for the error
+     message */
+  r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to parse JSON answer: %s\n", strerror(-r));
+      return r;
+    }
+
+  if (error_id && strlen(error_id) > 0)
+    {
+      const char *error = NULL;
+
+      if (p.error)
+	error = p.error;
+      else
+	error = error_id;
+
+      fprintf(stderr, "Failed to call ListImages method: %s\n", error);
+      return -EIO;
+    }
+
+  if (p.contents_json == NULL)
+    {
+      printf("No images found\n");
+      return 0;
+    }
+  if (!sd_json_variant_is_array(p.contents_json))
+    {
+      fprintf(stderr, "JSON 'Data' is no array!\n");
+      return -EINVAL;
+    }
+
+  /* XXX Use table_print_with_pager */
+  printf (" R L I C Name\n");
+
+  for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
+    {
+      _cleanup_(image_data_free) struct image_data e =
+	{
+	  .name = NULL,
+	  .image_name = NULL,
+	  .sysext_version_id = NULL,
+	  .sysext_scope = NULL,
+	  .id = NULL,
+	  .sysext_level = NULL,
+	  .version_id = NULL,
+	  .architecture = NULL,
+	  .remote = false,
+	  .local = false,
+	  .installed = false,
+	  .compatible = false,
+	};
+      static const sd_json_dispatch_field dispatch_entry_table[] = {
+        { "NAME",              SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, name), SD_JSON_MANDATORY },
+        { "IMAGE_NAME",        SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, image_name), SD_JSON_MANDATORY },
+        { "SYSEXT_VERSION_ID", SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, sysext_version_id), SD_JSON_MANDATORY },
+	{ "SYSEXT_SCOPE",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, sysext_scope), SD_JSON_NULLABLE},
+	{ "ID",                SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, id), SD_JSON_NULLABLE},
+	{ "SYSEXT_LEVEL",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, sysext_level), SD_JSON_NULLABLE},
+	{ "VERSION_ID",        SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, version_id), SD_JSON_NULLABLE},
+	{ "ARCHITECTURE",      SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, architecture), SD_JSON_NULLABLE},
+	{ "LOCAL",             SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, local), 0},
+	{ "REMOTE",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, remote), 0},
+	{ "INSTALLED",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, installed), 0},
+	{ "COMPATIBLE",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, compatible), 0},
+        {}
+      };
+
+      sd_json_variant *entry = sd_json_variant_by_index(p.contents_json, i);
+      if (!sd_json_variant_is_object(entry))
+        {
+          fprintf(stderr, "entry is no object!\n");
+          return -EINVAL;
+        }
+
+      r = sd_json_dispatch(entry, dispatch_entry_table, SD_JSON_ALLOW_EXTENSIONS, &e);
+      if (r < 0)
+        {
+	  fprintf(stderr, "Failed to parse JSON sysext image entry: %s\n", strerror(-r));
+          return r;
+        }
+
+      if (e.remote)
+	printf(" x");
+      else
+	printf("  ");
+      if (e.local)
+	printf(" x");
+      else
+	printf("  ");
+      if (e.installed)
+	printf(" x");
+      else
+	printf("  ");
+      if (e.compatible)
+	printf(" x");
+      else
+	printf("  ");
+      printf(" %s\n", e.image_name);
+    }
+
+  printf("R = remote, L = local, I = installed, C = commpatible\n");
+
+  return 0;
 }
 
 int
@@ -46,13 +201,6 @@ main_list(int argc, char **argv)
     {"verbose", no_argument, NULL, 'v'},
     {NULL, 0, NULL, '\0'}
   };
-  _cleanup_(freep) char *osrelease_id = NULL;
-  _cleanup_(freep) char *osrelease_sysext_level = NULL;
-  _cleanup_(freep) char *osrelease_version_id = NULL;
-  _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
-  _cleanup_(free_image_entry_list) struct image_entry **images_remote = NULL;
-  _cleanup_(free_image_entry_list) struct image_entry **images_local = NULL;
-  size_t n_remote = 0, n_local = 0, n_etc = 0;
   char *url = NULL;
   int c, r;
 
@@ -78,139 +226,13 @@ main_list(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  r = load_os_release(&osrelease_id, &osrelease_version_id, &osrelease_sysext_level);
-  if (r < 0)
-    return EXIT_FAILURE;
-
-  if (url)
-    {
-      r = image_remote_metadata(url, &images_remote, &n_remote, NULL);
-      if (r < 0)
-	{
-	  fprintf(stderr, "Fetching image data from '%s' failed: %s\n",
-		  url, strerror(-r));
-	  return r;
-	}
-
-      if (n_remote > 0)
-	{
-	  for (size_t i = 0; i < n_remote; i++)
-	    if (images_remote[i]->deps)
-	      images_remote[i]->compatible = extension_release_validate(images_remote[i]->deps->image_name,
-									osrelease_id, osrelease_version_id,
-									osrelease_sysext_level, "system",
-									images_remote[i]->deps, arg_verbose);
-	}
-    }
-
-  /* local available images */
-  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, NULL);
+  r = varlink_list_images(url);
   if (r < 0)
     {
-      fprintf(stderr, "Searching for images in '%s' failed: %s\n",
-	      SYSEXT_STORE_DIR, strerror(-r));
+      if (VARLINK_IS_NOT_RUNNING(r))
+	fprintf(stderr, "sysextmgrd not running!\n");
       return r;
     }
-
-  if ((n_local + n_remote) == 0)
-    {
-      printf("No images found\n");
-      return EXIT_SUCCESS;
-    }
-
-  /* list of "installed" images visible to systemd-sysext */
-  _cleanup_strv_free_ char **list_etc = NULL;
-  r = discover_images(EXTENSIONS_DIR, &list_etc);
-  if (r < 0)
-    {
-      fprintf(stderr, "Searching for images in '%s' failed: %s\n",
-	      EXTENSIONS_DIR, strerror(-r));
-      return r;
-    }
-  n_etc = strv_length(list_etc);
-
-  /* merge remote and local images */
-  images = calloc((n_remote + n_local + 1), sizeof(struct image_entry *));
-  if (images == NULL)
-    oom();
-
-  size_t n = 0;
-
-  for (size_t i = 0; i < n_remote; i++)
-    {
-      images[n] = TAKE_PTR(images_remote[i]);
-
-      if (images[n]->deps)
-	images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
-							   osrelease_id, osrelease_version_id,
-							   osrelease_sysext_level, "system",
-							   images[n]->deps, arg_verbose);
-      n++;
-    }
-
-  for (size_t i = 0; i < n_local; i++)
-    {
-      bool found = false;
-
-      for (size_t j = 0; j < n_etc; j++)
-	{
-	  if (streq(list_etc[j], images_local[i]->deps->image_name))
-	    images_local[i]->installed = true;
-	}
-
-      /* check if we know already the image */
-      for (size_t j = 0; j < n_remote; j++)
-	{
-	  if (streq(images_local[i]->deps->image_name, images[j]->deps->image_name))
-	    {
-	      images[j]->local = true;
-	      images[j]->installed = images_local[i]->installed;
-	      found = true;
-	      break;
-	    }
-	}
-
-      if (!found)
-	{
-	  images[n] = TAKE_PTR(images_local[i]);
-
-	  if (images[n]->deps)
-	    images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
-							       osrelease_id, osrelease_version_id,
-							       osrelease_sysext_level, "system",
-							       images[n]->deps, arg_verbose);
-	  n++;
-	}
-      else /* Free unused images_local[i] */
-	free_image_entryp(&images_local[i]);
-    }
-
-  /* sort list */
-  qsort(images, n, sizeof(struct image_entry *), image_cmp);
-
-  /* XXX Use table_print_with_pager */
-  printf (" R L I C Name\n");
-  for (size_t i = 0; images[i] != NULL; i++)
-    {
-      if (images[i]->remote)
-	printf(" x");
-      else
-	printf("  ");
-      if (images[i]->local)
-	printf(" x");
-      else
-	printf("  ");
-      if (images[i]->installed)
-	printf(" x");
-      else
-	printf("  ");
-      if (images[i]->compatible)
-	printf(" x");
-      else
-	printf("  ");
-      printf(" %s\n", images[i]->deps->image_name);
-    }
-  printf("R = remote, L = local, I = installed, C = commpatible\n");
 
   return EXIT_SUCCESS;
 }

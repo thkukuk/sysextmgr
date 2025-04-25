@@ -74,7 +74,7 @@ main_check(int argc, char **argv)
     {
       _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      r = get_latest_version(images_etc[n], &update, url);
+      r = get_latest_version(images_etc[n], &update, url, true /* verify_signature XXX */);
       if (update)
 	{
 	  /* XXX pretty print */

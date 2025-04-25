@@ -80,8 +80,8 @@ download(const char *url, const char *fn, const char *destfn, bool verify_signat
   if (r == -1)
     return -errno;
 
-  if (WIFEXITED(status))
-    return WEXITSTATUS(status);
+  if (status)
+    return status;
 
   return 0;
 }

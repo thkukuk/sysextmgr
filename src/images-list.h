@@ -3,5 +3,5 @@
 #pragma once
 
 extern int discover_images(const char *path, char ***result);
-extern int image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr, const char *filter);
+extern int image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr, const char *filter, bool verify_signature);
 extern int image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, const char *filter);

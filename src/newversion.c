@@ -65,7 +65,8 @@ check_if_newer(struct image_entry *old, struct image_entry *new, struct image_en
 }
 
 int
-get_latest_version(struct image_entry *curr, struct image_entry **new, const char *url)
+get_latest_version(struct image_entry *curr, struct image_entry **new,
+		   const char *url, bool verify_signature)
 {
   _cleanup_(free_image_entryp) struct image_entry *update = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_remote = NULL;
@@ -75,7 +76,8 @@ get_latest_version(struct image_entry *curr, struct image_entry **new, const cha
 
   if (url)
     {
-      r = image_remote_metadata(url, &images_remote, &n_remote, curr->name);
+      r = image_remote_metadata(url, &images_remote, &n_remote, curr->name,
+				verify_signature);
       if (r < 0)
 	{
 	  fprintf(stderr, "Fetching image data from '%s' failed: %s\n",

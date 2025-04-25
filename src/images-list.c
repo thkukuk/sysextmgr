@@ -41,7 +41,7 @@ readlink_malloc(const char *path, const char *name, char **ret)
     }
 
   /* Add one to the link size, so that we can determine whether
-     the buffer returned by readlink() was truncated. */
+     the buffer returnd by readlink() was truncated. */
   bufsiz = sb.st_size + 1;
 
   /* Some magic symlinks under (for example) /proc and /sys
@@ -167,7 +167,8 @@ image_read_metadata(const char *image_name, struct image_deps **res)
 }
 
 static int
-image_json_from_url(const char *url, const char *image_name, struct image_deps **res)
+image_json_from_url(const char *url, const char *image_name,
+		    struct image_deps **res, bool verify_signature)
 {
   _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-json.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
@@ -183,12 +184,29 @@ image_json_from_url(const char *url, const char *image_name, struct image_deps *
   char *p = stpcpy(jsonfn, image_name);
   strcpy(p, ".json");
 
-  r = download(url, jsonfn, tmpfn, false /*XXX*/);
-  if (r < 0)
+  r = download(url, jsonfn, tmpfn, verify_signature);
+  if (r != 0)
     {
-      fprintf(stderr, "Failed to download '%s' from '%s': %s",
-	      jsonfn, url, strerror(-r));
-      return r;
+      if (r < 0)
+	{
+	  fprintf(stderr, "Failed to download '%s' from '%s': %s\n",
+		  jsonfn, url, strerror(-r));
+	  return r;
+	}
+      else
+	{
+	  fprintf(stderr, "Failed to download '%s' from '%s': %i\n",
+		  jsonfn, url, r); /* XXX
+				      if (WIFEXITED(status)) {
+				      printf("exited, status=%d\n", WEXITSTATUS(status));
+				      } else if (WIFSIGNALED(status)) {
+				      printf("killed by signal %d\n", WTERMSIG(status));
+				      } else if (WIFSTOPPED(status)) {
+				      printf("stopped by signal %d\n", WSTOPSIG(status));
+				      }
+				   */
+	  return -EIO;
+	}
     }
 
   _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
@@ -216,7 +234,7 @@ image_json_from_url(const char *url, const char *image_name, struct image_deps *
 }
 
 static int
-image_list_from_url(const char *url, char ***result)
+image_list_from_url(const char *url, char ***result, bool verify_signature)
 {
   _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-SHA256SUMS.XXXXXX";
   _cleanup_close_ int fd = -EBADF;
@@ -228,12 +246,29 @@ image_list_from_url(const char *url, char ***result)
 
   fd = mkostemp_safe(tmpfn);
 
-  r = download(url, "SHA256SUMS", tmpfn, false /*XXX*/);
-  if (r < 0)
+  r = download(url, "SHA256SUMS", tmpfn, verify_signature);
+  if (r != 0)
     {
-      fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %s",
-	      url, strerror(-r));
-      return r;
+      if (r < 0)
+	{
+	  fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %s\n",
+		  url, strerror(-r));
+	  return r;
+	}
+      else
+	{
+	  fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %i\n",
+		  url, r); /* XXX
+			      if (WIFEXITED(status)) {
+			      printf("exited, status=%d\n", WEXITSTATUS(status));
+			      } else if (WIFSIGNALED(status)) {
+			      printf("killed by signal %d\n", WTERMSIG(status));
+			      } else if (WIFSTOPPED(status)) {
+			      printf("stopped by signal %d\n", WSTOPSIG(status));
+			      }
+			   */
+	  return -EIO;
+	}
     }
 
   fp = fdopen(fd, "r");
@@ -283,7 +318,7 @@ image_list_from_url(const char *url, char ***result)
 
 int
 image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
-		      const char *filter)
+		      const char *filter, bool verify_signature)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -293,9 +328,9 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
   assert(url);
   assert(res);
 
-  r = image_list_from_url(url, &list);
+  r = image_list_from_url(url, &list, verify_signature);
   if (r < 0)
-    return -r;
+    return r;
 
   n = strv_length(list);
   if (n > 0)
@@ -335,9 +370,9 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	    return -ENOMEM;
 	  images[pos]->remote = true;
 
-	  r = image_json_from_url(url, list[i], &(images[pos]->deps));
+	  r = image_json_from_url(url, list[i], &(images[pos]->deps), verify_signature);
 	  if (r < 0)
-	    return -r;
+	    return r;
 
 	  pos++;
 	}
@@ -363,7 +398,7 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, c
   if (r < 0)
     {
       fprintf(stderr, "Scan local images failed: %s\n", strerror(-r));
-      return -r;
+      return r;
     }
 
   n = strv_length(list);

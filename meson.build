@@ -1,5 +1,5 @@
 project(
-  'sysext-cli',
+  'sysextmgr',
   'c',
   meson_version : '>= 0.61.0',
   default_options : [
@@ -47,11 +47,21 @@ possible_cc_flags = [
 		  ]
 add_project_arguments(cc.get_supported_arguments(possible_cc_flags), language : 'c')
 
+prefixdir = get_option('prefix')
+if not prefixdir.startswith('/')
+        error('Prefix is not absolute: "@0@"'.format(prefixdir))
+endif
+libexecdir = join_paths(prefixdir, get_option('libexecdir'))
+datadir = join_paths(prefixdir, get_option('datadir'))
+conf.set_quoted('DATADIR', datadir)
+systemunitdir = prefixdir / 'lib/systemd/system'
+
 sysextstoredir = get_option('sysextstoredir')
 conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
 
 extensionsdir = get_option('extensionsdir')
 conf.set_quoted('EXTENSIONS_DIR', extensionsdir)
+
 
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
@@ -61,9 +71,15 @@ inc = include_directories(['include'])
 sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
   'src/download.c', 'src/osrelease.c', 'src/extrelease.c', 'src/extract.c',
   'src/image-deps.c', 'src/main-list.c', 'src/main-check.c', 'src/newversion.c',
-  'src/main-update.c', 'src/main-install.c',
+  'src/main-update.c', 'src/main-install.c', 'src/varlink-client.c',
   'lib/tmpfile-util.c', 'lib/string-util-fundamental.c', 'lib/strv.c',
   'lib/extension-util.c', 'lib/architecture.c']
+sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
+  'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
+  'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',
+  'src/config.c', 'src/json-common.c',
+  'lib/extension-util.c', 'lib/string-util-fundamental.c', 'lib/tmpfile-util.c',
+  'lib/strv.c', 'lib/architecture.c']
 
 executable('sysext-cli',
            sysext_cli_c,
@@ -71,8 +87,18 @@ executable('sysext-cli',
            dependencies : [libeconf, libsystemd],
            install : true)
 
+executable('sysextmgrd',
+           sysextmgrd_c,
+           include_directories : inc,
+           dependencies : [libeconf, libsystemd],
+           install_dir : libexecdir,
+           install : true)
+
 # Unit tests
 subdir('tests')
+
+# systemd units
+subdir('units')
 
 # Manual pages
 #subdir('man')
