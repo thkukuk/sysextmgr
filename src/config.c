@@ -23,7 +23,7 @@
 #include <libeconf.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "log_msg.h"
 
 struct config config;

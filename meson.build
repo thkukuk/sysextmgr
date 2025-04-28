@@ -68,7 +68,7 @@ libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 
 inc = include_directories(['include'])
 
-sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
+sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c', 'src/images-list.c',
   'src/download.c', 'src/osrelease.c', 'src/extrelease.c', 'src/extract.c',
   'src/image-deps.c', 'src/main-list.c', 'src/main-check.c', 'src/newversion.c',
   'src/main-update.c', 'src/main-install.c', 'src/varlink-client.c',
@@ -81,8 +81,8 @@ sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'lib/extension-util.c', 'lib/string-util-fundamental.c', 'lib/tmpfile-util.c',
   'lib/strv.c', 'lib/architecture.c']
 
-executable('sysext-cli',
-           sysext_cli_c,
+executable('sysextmgrcli',
+           sysextmgrcli_c,
            include_directories : inc,
            dependencies : [libeconf, libsystemd],
            install : true)

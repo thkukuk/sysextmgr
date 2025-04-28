@@ -7,7 +7,7 @@
 #include "basics.h"
 #include "image-deps.h"
 #include "images-list.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 
 static int
 check_if_newer(struct image_entry *old, struct image_entry *new, struct image_entry **update)

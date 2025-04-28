@@ -12,7 +12,7 @@
 
 #include "basics.h"
 #include "extension-util.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "osrelease.h"
 #include "extrelease.h"
 #include "download.h"

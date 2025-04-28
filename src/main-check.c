@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "images-list.h"
 #include "strv.h"
 

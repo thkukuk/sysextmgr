@@ -19,7 +19,7 @@
 #include <systemd/sd-json.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "image-deps.h"
 
 int

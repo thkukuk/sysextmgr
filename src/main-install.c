@@ -10,7 +10,7 @@
 
 #include "basics.h"
 #include "download.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "images-list.h"
 #include "tmpfile-util.h"
 

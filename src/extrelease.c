@@ -5,7 +5,7 @@
 #include <libeconf.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "extrelease.h"
 
 int

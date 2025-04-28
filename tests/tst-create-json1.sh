@@ -13,6 +13,6 @@ mkdir ${OUTPUT_DIR}
 
 for img in strace-29.1.x86-64 k3s-1.31.5+k3s1-29.1.x86-64;
 do
-    ./sysext-cli create-json -n "$img.raw" -i "$INPUT_DIR/extension-release.$img" -o "$OUTPUT_DIR/$img.raw.json"
+    ./sysextmgrcli create-json -n "$img.raw" -i "$INPUT_DIR/extension-release.$img" -o "$OUTPUT_DIR/$img.raw.json"
     cmp "${OUTPUT_DIR}/$img.raw.json" "${EXPECTED_DIR}/$img.raw.json"
 done

@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "varlink-client.h"
 
 static bool arg_verbose = false;

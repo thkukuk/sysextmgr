@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 
 /* Given an image name (for logging purposes), a set of os-release values from the host and a key-value pair
  * vector of extension-release variables, check that the distro and (system extension level or distro

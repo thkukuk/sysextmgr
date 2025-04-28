@@ -30,7 +30,7 @@
 
 #include "basics.h"
 #include "mkdir_p.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 #include "osrelease.h"
 #include "download.h"
 #include "images-list.h"

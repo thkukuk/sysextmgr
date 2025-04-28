@@ -8,7 +8,7 @@
 #include <systemd/sd-json.h>
 
 #include "basics.h"
-#include "sysext-cli.h"
+#include "sysextmgr.h"
 
 void
 oom(void)
@@ -22,7 +22,7 @@ usage(int retval)
 {
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
-  fputs("Usage: sysext-cli [command] [options]\n", output);
+  fputs("Usage: sysextmgrcli [command] [options]\n", output);
   fputs("Commands: create-json, check, dump-json, install, list, merge-json, update\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
@@ -357,7 +357,7 @@ main(int argc, char **argv)
 	  usage(EXIT_SUCCESS);
 	  break;
 	case 'v':
-	  printf("sysext-cli %s\n", VERSION);
+	  printf("sysextmgrcli %s\n", VERSION);
 	  break;
 	default:
 	  usage(EXIT_FAILURE);
