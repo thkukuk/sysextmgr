@@ -45,6 +45,12 @@ image_data_free (struct image_data *var)
 {
   var->name = mfree(var->name);
   var->image_name = mfree(var->image_name);
+  var->sysext_version_id = mfree(var->sysext_version_id);
+  var->sysext_scope = mfree(var->sysext_scope);
+  var->id = mfree(var->id);
+  var->sysext_level = mfree(var->sysext_level);
+  var->version_id = mfree(var->version_id);
+  var->architecture = mfree(var->architecture);
 }
 
 int
@@ -71,6 +77,7 @@ varlink_list_images (const char *url)
   if (r < 0)
     return r;
 
+  /* XXX add Verbose */
   if (url)
     {
       r = sd_json_buildo(&params,
