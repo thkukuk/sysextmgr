@@ -9,3 +9,5 @@
 
 extern int connect_to_sysextmgrd(sd_varlink **ret, const char *socket);
 extern int varlink_list_images (const char *url);
+extern int varlink_update (const char *url);
+

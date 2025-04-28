@@ -77,7 +77,7 @@ sysext_cli_c = ['src/sysext-cli.c', 'src/json-common.c', 'src/images-list.c',
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
   'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',
-  'src/config.c', 'src/json-common.c',
+  'src/config.c', 'src/json-common.c', 'src/newversion.c',
   'lib/extension-util.c', 'lib/string-util-fundamental.c', 'lib/tmpfile-util.c',
   'lib/strv.c', 'lib/architecture.c']
 

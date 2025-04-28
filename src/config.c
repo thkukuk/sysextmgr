@@ -38,6 +38,7 @@ open_config_file(econf_file **key_file)
 			  "conf", "=", "#");
 }
 
+/* XXX set config.url */
 int
 load_config(void)
 {
