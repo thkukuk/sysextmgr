@@ -2,18 +2,176 @@
 
 #include "config.h"
 
-#include <assert.h>
 #include <getopt.h>
-#include <unistd.h>
-#include <dirent.h>
-#include <stdlib.h>
+#include <stdbool.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
-#include "images-list.h"
-#include "strv.h"
+#include "varlink-client.h"
 
 static bool arg_verbose = false;
+static bool arg_quiet = false;
+
+struct update {
+  bool success;
+  char *error;
+  sd_json_variant *contents_json;
+};
+
+static void
+update_free(struct update *var)
+{
+  var->error = mfree(var->error);
+  var->contents_json = sd_json_variant_unref(var->contents_json);
+}
+
+struct image_data {
+  char *old_name;
+  char *new_name;
+};
+
+static void
+image_data_free(struct image_data *var)
+{
+  var->old_name = mfree(var->old_name);
+  var->new_name = mfree(var->new_name);
+}
+
+int
+varlink_check(const char *url)
+{
+  _cleanup_(update_free) struct update p = {
+    .success = false,
+    .error = NULL,
+    .contents_json = NULL,
+  };
+  static const sd_json_dispatch_field dispatch_table[] = {
+    { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct update, success), 0 },
+    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), 0 },
+    { "Images",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_json), 0 },
+    {}
+  };
+  _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+  sd_json_variant *result;
+  const char *error_id = NULL;
+  bool update_available = false;
+  int r;
+
+  r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
+  if (r < 0)
+    return r;
+
+  if (url)
+    {
+      r = sd_json_buildo(&params,
+                         SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+        }
+    }
+  if (arg_verbose)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("Verbose", SD_JSON_BUILD_BOOLEAN(arg_verbose)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
+  r = sd_varlink_call(link, "org.openSUSE.sysextmgr.Check", params, &result, &error_id);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to call Check method: %s\n", strerror(-r));
+      return r;
+    }
+  /* dispatch before checking error_id, we may need the result for the error
+     message */
+  r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+  if (r < 0)
+    {
+      fprintf(stderr, "Failed to parse JSON answer: %s\n", strerror(-r));
+      return r;
+    }
+
+  if (error_id && strlen(error_id) > 0)
+    {
+      const char *error = NULL;
+
+      if (p.error)
+        error = p.error;
+      else
+        error = error_id;
+
+      fprintf(stderr, "Failed to call Check method: %s\n", error);
+      return -EIO;
+    }
+
+  if (p.contents_json == NULL)
+    {
+      printf("No updates found\n");
+      return 0;
+    }
+  if (!sd_json_variant_is_array(p.contents_json))
+    {
+      fprintf(stderr, "JSON 'Data' is no array!\n");
+      return -EINVAL;
+    }
+
+  /* XXX Use table_print_with_pager */
+  if (!arg_quiet)
+    printf ("Old image -> New Image\n");
+
+  for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
+    {
+      _cleanup_(image_data_free) struct image_data e =
+        {
+          .old_name = NULL,
+          .new_name = NULL
+        };
+      static const sd_json_dispatch_field dispatch_entry_table[] = {
+        { "OldName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, old_name), SD_JSON_MANDATORY },
+        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), 0 },
+        {}
+      };
+
+      sd_json_variant *entry = sd_json_variant_by_index(p.contents_json, i);
+      if (!sd_json_variant_is_object(entry))
+        {
+          fprintf(stderr, "entry is no object!\n");
+          return -EINVAL;
+        }
+
+      r = sd_json_dispatch(entry, dispatch_entry_table, SD_JSON_ALLOW_EXTENSIONS, &e);
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to parse JSON sysext image entry: %s\n", strerror(-r));
+          return r;
+        }
+
+      if (e.new_name)
+	update_available = true;
+
+      if (!arg_quiet)
+	{
+	  if (e.new_name)
+	    printf ("%s -> %s\n", e.old_name, e.new_name);
+	  else
+	    if (arg_verbose)
+	      printf ("%s -> No compatible newer version found\n", e.old_name);
+	}
+    }
+
+  if (!update_available)
+    return ENODATA;
+  else
+    return 0;
+}
+
+
 
 int
 main_check(int argc, char **argv)
@@ -24,11 +182,7 @@ main_check(int argc, char **argv)
     {"quiet", no_argument, NULL, 'q'},
     {NULL, 0, NULL, '\0'}
   };
-  _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
-  size_t n_etc = 0;
   char *url = NULL;
-  bool update_available = false;
-  bool arg_quiet = false;
   int c, r;
 
   while ((c = getopt_long(argc, argv, "qu:v", longopts, NULL)) != -1)
@@ -56,36 +210,15 @@ main_check(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(EXTENSIONS_DIR, &images_etc, &n_etc, NULL);
+  r = varlink_check(url);
   if (r < 0)
     {
-      fprintf(stderr, "Searching for images in '%s' failed: %s\n",
-              EXTENSIONS_DIR, strerror(-r));
-      return r;
+      if (VARLINK_IS_NOT_RUNNING(r))
+        fprintf(stderr, "sysextmgrd not running!\n");
+      return -r;
     }
-  if (n_etc == 0)
-    {
-      printf("No installed images found.\n");
-      return EXIT_SUCCESS;
-    }
-
-  for (size_t n = 0; n < n_etc; n++)
-    {
-      _cleanup_(free_image_entryp) struct image_entry *update = NULL;
-
-      r = get_latest_version(images_etc[n], &update, url, true /* verify_signature XXX */);
-      if (update)
-	{
-	  /* XXX pretty print */
-	  if (!arg_quiet)
-	    printf("%s -> %s\n", images_etc[n]->deps->image_name, update->deps->image_name);
-	  update_available = true;
-	}
-    }
-
   /* Return ENODATA if there is no update and we should not print anything */
-  if (arg_quiet && !update_available)
+  if (r == ENODATA && arg_quiet)
     return ENODATA;
 
   return EXIT_SUCCESS;

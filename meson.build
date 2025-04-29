@@ -68,12 +68,9 @@ libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 
 inc = include_directories(['include'])
 
-sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c', 'src/images-list.c',
-  'src/download.c', 'src/osrelease.c', 'src/extrelease.c', 'src/extract.c',
-  'src/image-deps.c', 'src/main-list.c', 'src/main-check.c', 'src/newversion.c',
-  'src/main-update.c', 'src/main-install.c', 'src/varlink-client.c',
-  'lib/tmpfile-util.c', 'lib/string-util-fundamental.c', 'lib/strv.c',
-  'lib/extension-util.c', 'lib/architecture.c']
+sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c',
+  'src/main-check.c', 'src/main-list.c', 'src/main-install.c', 
+  'src/main-update.c', 'src/image-deps.c', 'src/varlink-client.c']
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
   'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',

@@ -35,6 +35,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(UpdatedImage,
 				     SD_VARLINK_DEFINE_FIELD(NewImage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
+                Check,
+                SD_VARLINK_FIELD_COMMENT("URL of remote sysext images, requires root rights"),
+                SD_VARLINK_DEFINE_INPUT(URL, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+		SD_VARLINK_FIELD_COMMENT("Verbose logging to journald"),
+		SD_VARLINK_DEFINE_INPUT(Verbose, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+		SD_VARLINK_FIELD_COMMENT("If call succeeded"),
+		SD_VARLINK_DEFINE_OUTPUT(Success, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("List of images with compatible updates"),
+		SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Images, UpdatedImage, SD_VARLINK_ARRAY | SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Error Message"),
+                SD_VARLINK_DEFINE_OUTPUT(ErrorMsg, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
                 Install,
 		SD_VARLINK_FIELD_COMMENT("Name of sysext images"),
                 SD_VARLINK_DEFINE_INPUT(Install, SD_VARLINK_STRING, 0),
@@ -105,6 +118,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 org_openSUSE_sysextmgr,
                 "org.openSUSE.sysextmgr",
 		SD_VARLINK_INTERFACE_COMMENT("SysextMgr control APIs"),
+		SD_VARLINK_SYMBOL_COMMENT("Check for newer compatible images for installed onces"),
+                &vl_method_Check,
 		SD_VARLINK_SYMBOL_COMMENT("Install newest compatible image with this name"),
                 &vl_method_Install,
 		SD_VARLINK_SYMBOL_COMMENT("List all images including dependencies"),

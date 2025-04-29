@@ -36,6 +36,7 @@
 #include "images-list.h"
 #include "extension-util.h"
 #include "tmpfile-util.h"
+#include "architecture.h"
 #include "strv.h"
 #include "log_msg.h"
 
@@ -331,12 +332,12 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
     }
 
   /* local available images */
-  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, NULL);
+  r = image_local_metadata(config.sysext_store_dir, &images_local, &n_local, NULL);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   SYSEXT_STORE_DIR, strerror(-r)) < 0)
+		   config.sysext_store_dir, strerror(-r)) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
@@ -349,17 +350,17 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
     {
       log_msg(LOG_INFO, "No images found");
       return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
-				SD_JSON_BUILD_PAIR_VARIANT("Images", array)); /* XXX */
+				SD_JSON_BUILD_PAIR_VARIANT("Images", array));
     }
 
   /* list of "installed" images visible to systemd-sysext */
   _cleanup_strv_free_ char **list_etc = NULL;
-  r = discover_images(EXTENSIONS_DIR, &list_etc);
+  r = discover_images(config.extensions_dir, &list_etc);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   EXTENSIONS_DIR, strerror(-r)) < 0)
+		   config.extensions_dir, strerror(-r)) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
@@ -453,6 +454,114 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 			    SD_JSON_BUILD_PAIR_VARIANT("Images", array));
 }
 
+static int
+vl_method_check(sd_varlink *link, sd_json_variant *parameters,
+		sd_varlink_method_flags_t _unused_(flags),
+		void _unused_(*userdata))
+{
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+  _cleanup_(parameters_free) struct parameters p = {
+    .url = NULL,
+    .verbose = config.verbose,
+    .install = NULL
+  };
+  static const sd_json_dispatch_field dispatch_table[] = {
+    { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
+    { "Verbose", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, verbose), 0},
+    {}
+  };
+  _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
+  size_t n_etc = 0;
+  const char *url = NULL;
+  int r;
+
+  log_msg(LOG_INFO, "Varlink method \"Check\" called...");
+
+  r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+  if (r < 0)
+    {
+      log_msg(LOG_ERR, "Check request: varlink dispatch failed: %s", strerror(-r));
+      return r;
+    }
+
+  /* Only allow URL or verbose argument if called by root */
+  if (p.url || p.verbose != config.verbose)
+    {
+      uid_t peer_uid;
+      r = sd_varlink_get_peer_uid(link, &peer_uid);
+      if (r < 0)
+        {
+          log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
+          return r;
+        }
+      if (peer_uid != 0)
+        {
+	  if (p.url)
+	    {
+	      log_msg(LOG_WARNING, "Check: peer UID %i denied with additional options", peer_uid);
+	      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
+	    }
+	  /* Ignore changed verbose flag, only root is allowed to set that */
+	  p.verbose = config.verbose;
+        }
+    }
+
+  /* use URL from config if none got provided via parameter */
+  if (p.url)
+    url = p.url;
+  else
+    url = config.url;
+
+  /* list of "installed" images visible to systemd-sysext */
+  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Searching for images in '%s' failed: %s",
+		   config.extensions_dir, strerror(-r)) < 0)
+	error = NULL;
+
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
+  if (n_etc == 0)
+    {
+      log_msg(LOG_NOTICE, "No installed images found.");
+      /* XXX provide error message to client */
+      return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
+				SD_JSON_BUILD_PAIR_VARIANT("Images", array));
+    }
+
+  for (size_t n = 0; n < n_etc; n++)
+    {
+      _cleanup_(free_image_entryp) struct image_entry *update = NULL;
+
+      r = get_latest_version(images_etc[n], &update, url, config.verify_signature);
+      if (update)
+        {
+	  log_msg(LOG_NOTICE, "Update available: %s -> %s", images_etc[n]->deps->image_name, update->deps->image_name);
+
+	  r = sd_json_variant_append_arraybo(&array,
+					     SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->deps->image_name),
+					     SD_JSON_BUILD_PAIR_STRING("NewName", update->deps->image_name));
+        }
+      else /* No update found */
+	r = sd_json_variant_append_arraybo(&array,
+					   SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->deps->image_name),
+					   SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
+      if(r < 0)
+	{
+	  log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
+	  /* XXX */
+	}
+    }
+
+  return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
+			    SD_JSON_BUILD_PAIR_VARIANT("Images", array));
+}
+
 static void
 unlink_and_free_tempfilep(char **p)
 {
@@ -521,12 +630,12 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     url = config.url;
 
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(EXTENSIONS_DIR, &images_etc, &n_etc, NULL);
+  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   EXTENSIONS_DIR, strerror(-r)) < 0)
+		   config.extensions_dir, strerror(-r)) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
@@ -554,11 +663,11 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
 	  log_msg(LOG_NOTICE, "Updating %s -> %s", images_etc[n]->deps->image_name, update->deps->image_name);
 
-          r = join_path(SYSEXT_STORE_DIR, update->deps->image_name, &fn);
+          r = join_path(config.sysext_store_dir, update->deps->image_name, &fn);
           if (r < 0) /* XXX return error msg */
             return r;
 
-          if (asprintf(&linkfn, "%s/%s.raw", EXTENSIONS_DIR, update->name) < 0)
+          if (asprintf(&linkfn, "%s/%s.raw", config.extensions_dir, update->name) < 0)
             return -ENOMEM;
 
           if (!update->local && update->remote)
@@ -568,7 +677,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
               assert(url);
 
-              if (asprintf(&tmpfn, "%s/.%s.XXXXXX", SYSEXT_STORE_DIR, update->deps->image_name) < 0)
+              if (asprintf(&tmpfn, "%s/.%s.XXXXXX", config.sysext_store_dir, update->deps->image_name) < 0)
                 return -ENOMEM;
 
               fd = mkostemp_safe(tmpfn);
@@ -694,7 +803,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
     url = config.url;
 
   struct image_deps wanted_deps = {
-    .architecture = "x86-64" /* XXX */
+    .architecture = architecture_to_string(uname_architecture()),
   };
   struct image_entry wanted = {
     .name = p.install,
@@ -732,11 +841,11 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
   log_msg(LOG_NOTICE, "Installing %s", new->deps->image_name);
 
-  r = join_path(SYSEXT_STORE_DIR, new->deps->image_name, &fn);
+  r = join_path(config.sysext_store_dir, new->deps->image_name, &fn);
   if (r < 0) /* XXX return error msg */
     return r;
 
-  if (asprintf(&linkfn, "%s/%s.raw", EXTENSIONS_DIR, new->name) < 0)
+  if (asprintf(&linkfn, "%s/%s.raw", config.extensions_dir, new->name) < 0)
     return -ENOMEM;
 
   if (!new->local && new->remote)
@@ -746,7 +855,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
       assert(url);
 
-      if (asprintf(&tmpfn, "%s/.%s.XXXXXX", SYSEXT_STORE_DIR, new->deps->image_name) < 0)
+      if (asprintf(&tmpfn, "%s/.%s.XXXXXX", config.sysext_store_dir, new->deps->image_name) < 0)
 	return -ENOMEM;
 
       fd = mkostemp_safe(tmpfn);
@@ -899,6 +1008,7 @@ run_varlink(void)
     }
 
   r = sd_varlink_server_bind_method_many(varlink_server,
+					 "org.openSUSE.sysextmgr.Check",          vl_method_check,
 					 "org.openSUSE.sysextmgr.Install",        vl_method_install,
 					 "org.openSUSE.sysextmgr.ListImages",     vl_method_list_images,
 					 "org.openSUSE.sysextmgr.Update",         vl_method_update,

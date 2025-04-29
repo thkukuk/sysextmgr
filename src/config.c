@@ -26,6 +26,7 @@
 #include "sysextmgr.h"
 #include "log_msg.h"
 
+/* XXX free config */
 struct config config;
 
 static econf_err
