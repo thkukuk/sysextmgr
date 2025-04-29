@@ -122,7 +122,7 @@ varlink_update (const char *url)
         };
       static const sd_json_dispatch_field dispatch_entry_table[] = {
         { "OldName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, old_name), SD_JSON_MANDATORY },
-        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), SD_JSON_MANDATORY },
+        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), 0 },
         {}
       };
 
@@ -141,7 +141,7 @@ varlink_update (const char *url)
         }
 
       if (!arg_quiet)
-	printf ("%s -> %s\n", e.old_name, e.new_name);
+	printf ("%s -> %s\n", e.old_name, e.new_name?e.new_name:"No compatible newer version found"); /* XXX add option to print only updates */
     }
 
   return 0;
@@ -185,7 +185,7 @@ main_update(int argc, char **argv)
     {
       if (VARLINK_IS_NOT_RUNNING(r))
         fprintf(stderr, "sysextmgrd not running!\n");
-      return r;
+      return -r;
     }
 
   return EXIT_SUCCESS;
