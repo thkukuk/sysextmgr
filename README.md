@@ -1,6 +1,9 @@
-# sysext-cli
+# sysextmgr
 
-`sysext-cli` is a command line utility to manage [systemd-sysext](https://manpages.opensuse.org/systemd-sysext) images on [openSUSE MicroOS](https://microos.opensuse.org).
+`sysextmgr` is a set of command line utility and daemon to manage [systemd-sysext](https://manpages.opensuse.org/systemd-sysext) images on [openSUSE MicroOS](https://microos.opensuse.org).
+
+`sysxtmgrcli` is the command line utility which communiates with `sysextmgrd` in the background. This allows even unprivileged users to list existing sysext images without the need to be setuid root.
+`sysmgrd` is a server normally activated via a systemd socket, but which can also ran standalone as daemon.
 
 ## Directory Structure
 
