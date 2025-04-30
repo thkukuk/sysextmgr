@@ -20,6 +20,7 @@
 #include "tmpfile-util.h"
 #include "strv.h"
 #include "images-list.h"
+#include "log_msg.h"
 
 static int
 readlink_malloc(const char *path, const char *name, char **ret)
@@ -60,7 +61,7 @@ readlink_malloc(const char *path, const char *name, char **ret)
 
   if (nbytes == bufsiz)
     {
-      fprintf(stderr, "Returned buffer may have been truncated\n");
+      log_msg(LOG_CRIT, "Returned buffer may have been truncated!");
       exit(EXIT_FAILURE);
     }
 
@@ -145,13 +146,13 @@ image_read_metadata(const char *image_name, struct image_deps **res)
   r = extract(SYSEXT_STORE_DIR, image_name, fd);
   if (r < 0)
     {
-      fprintf(stderr, "Failed to extract extension-release from '%s': %s\n",
+      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
 	      image_name, strerror(-r));
       return r;
     }
   else if (r > 0)
     {
-      fprintf(stderr, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)\n",
+      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
 	      image_name, r);
       return -EINVAL;
     }
@@ -189,22 +190,22 @@ image_json_from_url(const char *url, const char *image_name,
     {
       if (r < 0)
 	{
-	  fprintf(stderr, "Failed to download '%s' from '%s': %s\n",
+	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %s",
 		  jsonfn, url, strerror(-r));
 	  return r;
 	}
       else
 	{
-	  fprintf(stderr, "Failed to download '%s' from '%s': %i\n",
-		  jsonfn, url, r); /* XXX
-				      if (WIFEXITED(status)) {
-				      printf("exited, status=%d\n", WEXITSTATUS(status));
-				      } else if (WIFSIGNALED(status)) {
-				      printf("killed by signal %d\n", WTERMSIG(status));
-				      } else if (WIFSTOPPED(status)) {
-				      printf("stopped by signal %d\n", WSTOPSIG(status));
-				      }
-				   */
+	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %i", jsonfn, url, r);
+	  /* XXX
+	     if (WIFEXITED(status)) {
+	     printf("exited, status=%d\n", WEXITSTATUS(status));
+	     } else if (WIFSIGNALED(status)) {
+	     printf("killed by signal %d\n", WTERMSIG(status));
+	     } else if (WIFSTOPPED(status)) {
+	     printf("stopped by signal %d\n", WSTOPSIG(status));
+	     }
+	  */
 	  return -EIO;
 	}
     }
@@ -216,7 +217,7 @@ image_json_from_url(const char *url, const char *image_name,
 
   if (images == NULL || images[0] == NULL)
     {
-      fprintf(stderr, "No entry with dependencies found (%s)!\n", jsonfn);
+      log_msg(LOG_NOTICE, "No entry with dependencies found (%s)!", jsonfn);
       return -ENOENT;
     }
 
@@ -226,7 +227,7 @@ image_json_from_url(const char *url, const char *image_name,
     {
       /* XXX go through the list and search the corret image */
       /* XXX we cannot use TAKE_PTR else the rest of the list will not be free'd */
-      fprintf(stderr, "More than one entry found, not implemented yet!\n");
+      log_msg(LOG_ERR, "More than one entry found, not implemented yet!");
       exit(EXIT_FAILURE);
     }
 
@@ -251,22 +252,22 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
     {
       if (r < 0)
 	{
-	  fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %s\n",
+	  log_msg(LOG_ERR, "Failed to download 'SHA256SUMS' from '%s': %s",
 		  url, strerror(-r));
 	  return r;
 	}
       else
 	{
-	  fprintf(stderr, "Failed to download 'SHA256SUMS' from '%s': %i\n",
-		  url, r); /* XXX
-			      if (WIFEXITED(status)) {
-			      printf("exited, status=%d\n", WEXITSTATUS(status));
-			      } else if (WIFSIGNALED(status)) {
-			      printf("killed by signal %d\n", WTERMSIG(status));
-			      } else if (WIFSTOPPED(status)) {
-			      printf("stopped by signal %d\n", WSTOPSIG(status));
-			      }
-			   */
+	  log_msg(LOG_ERR, "Failed to download 'SHA256SUMS' from '%s': %i", url, r);
+	  /* XXX
+	     if (WIFEXITED(status)) {
+	     printf("exited, status=%d\n", WEXITSTATUS(status));
+	     } else if (WIFSIGNALED(status)) {
+	     printf("killed by signal %d\n", WTERMSIG(status));
+	     } else if (WIFSTOPPED(status)) {
+	     printf("stopped by signal %d\n", WSTOPSIG(status));
+	     }
+	  */
 	  return -EIO;
 	}
     }
@@ -397,7 +398,10 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, c
   r = discover_images(store, &list);
   if (r < 0)
     {
-      fprintf(stderr, "Scan local images failed: %s\n", strerror(-r));
+      if (r == -ENOENT)
+	return 0;
+
+      log_msg(LOG_ERR, "Scan local images failed: %s", strerror(-r));
       return r;
     }
 
