@@ -887,6 +887,21 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 	}
     }
 
+  /* make sure directory exists and is a directory */
+  r = mkdir_p(config.extensions_dir, 0755);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Failed to create directory '%s': %s",
+		   config.extensions_dir, strerror(-r)) < 0)
+	error = NULL;
+
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+				SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
+
   if (symlink(fn, linkfn) < 0)
     {
       _cleanup_free_ char *error = NULL;
