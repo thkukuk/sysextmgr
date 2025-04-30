@@ -356,7 +356,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   /* list of "installed" images visible to systemd-sysext */
   _cleanup_strv_free_ char **list_etc = NULL;
   r = discover_images(config.extensions_dir, &list_etc);
-  if (r < 0)
+  if (r < 0 && r != -ENOENT)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
