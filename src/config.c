@@ -1,21 +1,5 @@
 //SPDX-License-Identifier: GPL-2.0-or-later
 
-/* Copyright (c) 2024 Thorsten Kukuk
-   Author: Thorsten Kukuk <kukuk@suse.com>
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2 of the License, or
-   (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License along
-   with this program; if not, see <http://www.gnu.org/licenses/>. */
-
 #include "config.h"
 
 #include <string.h>
@@ -26,7 +10,6 @@
 #include "sysextmgr.h"
 #include "log_msg.h"
 
-/* XXX free config */
 struct config config;
 
 static econf_err
@@ -39,9 +22,56 @@ open_config_file(econf_file **key_file)
 			  "conf", "=", "#");
 }
 
-/* XXX set config.url */
+static int
+getBoolValueDef(econf_file *key_file, const char *group, const char *key, bool *val, bool def)
+{
+  econf_err error;
+
+  /* first try, special (client, daemon) group */
+  error = econf_getBoolValue(key_file, group, key, val);
+  if (!error)
+    return 0;
+
+  /* second try, use "default" group */
+  if (error && error == ECONF_NOKEY)
+    error = econf_getBoolValueDef(key_file, "default", key, val, def);
+
+  if (error && error != ECONF_NOKEY)
+    {
+      log_msg(LOG_ERR, "ERROR (econf): cannot get key '%s': %s",
+	      key, econf_errString(error));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+getStringValueDef(econf_file *key_file, const char *group, const char *key, char **val, char *def)
+{
+  econf_err error;
+
+  /* first try, special (client, daemon) group */
+  error = econf_getStringValue(key_file, group, key, val);
+  if (!error)
+    return 0;
+
+  /* second try, use "default" group */
+  if (error && error == ECONF_NOKEY)
+    error = econf_getStringValueDef(key_file, "default", key, val, def);
+
+  if (error && error != ECONF_NOKEY)
+    {
+      log_msg(LOG_ERR, "ERROR (econf): cannot get key '%s': %s",
+	      key, econf_errString(error));
+      return -1;
+    }
+
+  return 0;
+}
+
 int
-load_config(void)
+load_config(const char *defgroup)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   econf_err error;
@@ -62,34 +92,23 @@ load_config(void)
       log_msg(LOG_ERR, "Cannot load 'sysextmgr.conf'");
   else
     {
-      error = econf_getBoolValueDef(key_file, "default", "verbose", &config.verbose, false);
-      if (error && error != ECONF_NOKEY)
-	{
-	  log_msg(LOG_ERR, "ERROR (econf): cannot get key 'verbose': %s",
-		  econf_errString(error));
-	  return -1;
-	}
-      error = econf_getBoolValueDef(key_file, "default", "verify_signature", &config.verify_signature, true);
-      if (error && error != ECONF_NOKEY)
-	{
-	  log_msg(LOG_ERR, "ERROR (econf): cannot get key 'verify_signature': %s",
-		  econf_errString(error));
-	  return -1;
-	}
-      error = econf_getStringValueDef(key_file, "default", "sysext_store_dir", &config.sysext_store_dir, SYSEXT_STORE_DIR);
-      if (error && error != ECONF_NOKEY)
-	{
-	  log_msg(LOG_ERR, "ERROR (econf): cannot get key 'sysext_store_dir': %s",
-		  econf_errString(error));
-	  return -1;
-	}
-      error = econf_getStringValueDef(key_file, "default", "extensions_dir", &config.extensions_dir, EXTENSIONS_DIR);
-      if (error && error != ECONF_NOKEY)
-	{
-	  log_msg(LOG_ERR, "ERROR (econf): cannot get key 'extensions_dir': %s",
-		  econf_errString(error));
-	  return -1;
-	}
+      int r;
+
+      r = getBoolValueDef(key_file, defgroup, "verbose", &config.verbose, false);
+      if (r < 0)
+	return r;
+      r = getBoolValueDef(key_file, defgroup, "verify_signature", &config.verify_signature, true);
+      if (r < 0)
+	return r;
+      r = getStringValueDef(key_file, defgroup, "url", &config.url, NULL);
+      if (r < 0)
+	return r;
+      r = getStringValueDef(key_file, defgroup, "sysext_store_dir", &config.sysext_store_dir, SYSEXT_STORE_DIR);
+      if (r < 0)
+	return r;
+      r = getStringValueDef(key_file, defgroup, "extensions_dir", &config.extensions_dir, EXTENSIONS_DIR);
+      if (r < 0)
+	return r;
     }
   return 0;
 }

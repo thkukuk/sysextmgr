@@ -803,7 +803,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
     url = config.url;
 
   struct image_deps wanted_deps = {
-    .architecture = architecture_to_string(uname_architecture()),
+    .architecture = (char *)architecture_to_string(uname_architecture()),
   };
   struct image_entry wanted = {
     .name = p.install,
@@ -1077,7 +1077,7 @@ main(int argc, char **argv)
 {
   int r;
 
-  r = load_config();
+  r = load_config("sysextmgrd");
   if (r < 0)
     {
       log_msg(LOG_ERR, "Couldn't load configuration file");

@@ -16,7 +16,7 @@ struct config {
 
 extern struct config config;
 
-extern int load_config(void);
+extern int load_config(const char *defgroup);
 
 /* json-common.c */
 

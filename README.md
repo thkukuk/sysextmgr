@@ -24,7 +24,7 @@ For all downloads `systemd-pull` will be used, which is also able to verify the 
 
 ### Import image
 
-`sysext-cli` will differentiate two cases:
+`sysextmgrcli` will differentiate two cases:
 
 A full image name (including version and architecture) is specified:
 * Download specific image to `/var/lib/sysext-store`.
@@ -40,7 +40,7 @@ Only the image name without version and architecture information are specified:
 
 ### Update image
 
-`sysext-cli` will:
+`sysextmgrcli` will:
 * Scan the local directory `/var/lib/sysext-store` for the existing images.
 * Download the SHA256SUMs file from the remote repository.
 * Check if there are newer versions for the installed images. If yes:
@@ -51,7 +51,7 @@ Only the image name without version and architecture information are specified:
 
 ### Cleanup images
 
-`sysext-cli` will:
+`sysextmgrcli` will:
 * Check all snapshots for list of used images and remove the no longer needed ones.
 
 ## Dependency handling
@@ -72,4 +72,31 @@ The solution is to provide a `<image>.json` file with the following structure:´
     "ARCHITECTURE": "x86-64"
   }
 }
+```
+
+## Configuration
+
+The sysextmgr tools read an INI style configuration file following the [Configuration Files Specification](https://uapi-group.org/specifications/specs/configuration_files_specification/) of the [The Linux Userspace API (UAPI) Group](https://uapi-group.org/).
+
+The search order for configuration files:
+```
+/etc/sysextmgr/sysextmgr.conf
+/run/sysextmgr/sysextmgr.conf
+/usr/share/sysextmgr/sysextmgr.conf
+/etc/sysextmgr/sysextmgr.conf.d/*.conf
+/run/sysextmgr/sysextmgr.conf.d/*.conf
+/usr/share/sysextmgr/sysextmgr.conf.d/*.conf
+```
+
+Supported groups:
+* *sysextmgrd* - the key/value pairs of this group are read by `sysextmgrd`.
+* *default* - this key/value pairs of this group are read by `sysextmgrd` and `sysextmgrcli` if they are not specific in a tool specific section. But they are not necessarly supported by both.
+
+Example configuration file:
+```
+[default]
+url=https://download.opensuse.org/repositories/home:/kukuk:/sysext/mkosi/
+
+[sysextmgrd]
+verbose=true
 ```
