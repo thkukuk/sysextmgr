@@ -22,12 +22,13 @@ extern int load_config(const char *defgroup);
 
 #include <systemd/sd-json.h>
 
+#include "osrelease.h"
 #include "image-deps.h"
 
 extern int parse_image_deps(sd_json_variant *json, struct image_deps **e);
 extern int load_image_json(int fd, const char *path, struct image_deps ***images);
 
-extern int get_latest_version(struct image_entry *curr, struct image_entry **new, const char *url, bool verify_signature);
+extern int get_latest_version(struct image_entry *curr, struct image_entry **new, const char *url, bool verify_signature, const struct osrelease *osrelease, bool verbose);
 /* main.c */
 extern void oom(void);
 extern void usage(int retval);

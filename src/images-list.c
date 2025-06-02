@@ -319,7 +319,8 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 
 int
 image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
-		      const char *filter, bool verify_signature)
+		      const char *filter, bool verify_signature,
+		      struct osrelease *osrelease, bool verbose)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -375,6 +376,12 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	  if (r < 0)
 	    return r;
 
+	  if (images[pos]->deps && osrelease)
+	    images[pos]->compatible =
+	      extension_release_validate(images[pos]->deps->image_name,
+					 osrelease, "system",
+					 images[pos]->deps, verbose);
+
 	  pos++;
 	}
     }
@@ -388,7 +395,8 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 }
 
 int
-image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, const char *filter)
+image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
+		     const char *filter, struct osrelease *osrelease, bool verbose)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -447,6 +455,12 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr, c
 	  r = image_read_metadata(list[i], &(images[pos]->deps));
 	  if (r < 0)
 	    return r;
+
+	  if (images[pos]->deps && osrelease)
+	    images[pos]->compatible =
+	      extension_release_validate(images[pos]->deps->image_name,
+					 osrelease, "system",
+					 images[pos]->deps, verbose);
 
 	  pos++;
 	}

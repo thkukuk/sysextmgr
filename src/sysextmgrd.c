@@ -305,7 +305,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   if (url)
     {
-      r = image_remote_metadata(url, &images_remote, &n_remote, NULL, config.verify_signature);
+      r = image_remote_metadata(url, &images_remote, &n_remote, NULL, config.verify_signature, osrelease, p.verbose);
       if (r < 0)
         {
 	  _cleanup_free_ char *error = NULL;
@@ -317,19 +317,10 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 				    SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
 				    SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
         }
-
-      if (n_remote > 0)
-        {
-          for (size_t i = 0; i < n_remote; i++)
-            if (images_remote[i]->deps)
-              images_remote[i]->compatible = extension_release_validate(images_remote[i]->deps->image_name,
-									osrelease, "system",
-                                                                        images_remote[i]->deps, p.verbose);
-        }
     }
 
   /* local available images */
-  r = image_local_metadata(config.sysext_store_dir, &images_local, &n_local, NULL);
+  r = image_local_metadata(config.sysext_store_dir, &images_local, &n_local, NULL, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -409,11 +400,6 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
       if (!found)
         {
           images[n] = TAKE_PTR(images_local[i]);
-
-          if (images[n]->deps)
-            images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
-                                                               osrelease, "system",
-                                                               images[n]->deps, p.verbose);
           n++;
         }
       else /* Free unused images_local[i] */
@@ -465,12 +451,25 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
     { "Verbose", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, verbose), 0},
     {}
   };
+  _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
   size_t n_etc = 0;
   const char *url = NULL;
   int r;
 
   log_msg(LOG_INFO, "Varlink method \"Check\" called...");
+
+  r = load_os_release(NULL, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
 
   r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
   if (r < 0)
@@ -507,8 +506,20 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
   else
     url = config.url;
 
+  r = load_os_release(NULL, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
+
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL);
+  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -533,7 +544,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
     {
       _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      r = get_latest_version(images_etc[n], &update, url, config.verify_signature);
+      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease, p.verbose);
       if (update)
         {
 	  log_msg(LOG_NOTICE, "Update available: %s -> %s", images_etc[n]->deps->image_name, update->deps->image_name);
@@ -589,6 +600,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     { "Install", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, install), 0},
     {}
   };
+  _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
   size_t n_etc = 0;
   const char *url = NULL;
@@ -624,8 +636,20 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
   else
     url = config.url;
 
+  r = load_os_release(NULL, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
+
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL);
+  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -650,7 +674,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     {
       _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      r = get_latest_version(images_etc[n], &update, url, config.verify_signature);
+      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease, p.verbose);
       if (update)
         {
           _cleanup_free_ char *fn = NULL;
@@ -763,6 +787,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
     { "Install", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, install), SD_JSON_MANDATORY},
     {}
   };
+  _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
   _cleanup_(free_image_entryp) struct image_entry *new = NULL;
   const char *url = NULL;
   int r;
@@ -797,6 +822,18 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   else
     url = config.url;
 
+  r = load_os_release(NULL, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
+    }
+
   struct image_deps wanted_deps = {
     .architecture = (char *)architecture_to_string(uname_architecture()),
   };
@@ -805,7 +842,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
     .deps = &wanted_deps
   };
 
-  r = get_latest_version(&wanted, &new, url, config.verify_signature);
+  r = get_latest_version(&wanted, &new, url, config.verify_signature, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
