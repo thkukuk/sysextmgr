@@ -55,6 +55,8 @@ static inline void fclosep(FILE **f) {
 
 /* from string-util-fundamental.h */
 
+#define WHITESPACE          " \t\n\r"
+
 #define streq(a,b) (strcmp((a),(b)) == 0)
 #define strneq(a, b, n) (strncmp((a), (b), (n)) == 0)
 #define strcaseeq(a,b) (strcasecmp((a),(b)) == 0)

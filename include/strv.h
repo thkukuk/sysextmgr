@@ -130,7 +130,22 @@ static inline bool strv_isempty(char * const *l) {
         return !l || !*l;
 }
 
-#if 0
+/* from basic/extract-word.h */
+typedef enum ExtractFlags {
+        EXTRACT_RELAX                    = 1 << 0, /* Allow unbalanced quote and eat up trailing backslash. */
+        EXTRACT_CUNESCAPE                = 1 << 1, /* Unescape known escape sequences. */
+        EXTRACT_UNESCAPE_RELAX           = 1 << 2, /* Allow and keep unknown escape sequences, allow and keep trailing backslash. */
+        EXTRACT_UNESCAPE_SEPARATORS      = 1 << 3, /* Unescape separators (those specified, or whitespace by default). */
+        EXTRACT_KEEP_QUOTE               = 1 << 4, /* Ignore separators in quoting with "" and ''. */
+        EXTRACT_UNQUOTE                  = 1 << 5, /* Ignore separators in quoting with "" and '', and remove the quotes. */
+        EXTRACT_DONT_COALESCE_SEPARATORS = 1 << 6, /* Don't treat multiple adjacent separators as one */
+        EXTRACT_RETAIN_ESCAPE            = 1 << 7, /* Treat escape character '\' as any other character without special meaning */
+        EXTRACT_RETAIN_SEPARATORS        = 1 << 8, /* Do not advance the original string pointer past the separator(s) */
+
+        /* Note that if no flags are specified, escaped escape characters will be silently stripped. */
+} ExtractFlags;
+
+
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
 static inline char** strv_split(const char *s, const char *separators) {
         char **ret;
@@ -141,6 +156,7 @@ static inline char** strv_split(const char *s, const char *separators) {
         return ret;
 }
 
+#if 0
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags);
 #define strv_split_and_extend(t, s, sep, dup) strv_split_and_extend_full(t, s, sep, dup, 0)
 

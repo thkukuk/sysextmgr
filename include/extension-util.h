@@ -12,6 +12,7 @@
 extern int extension_release_validate(
                 const char *name,
                 const char *host_os_release_id,
+                const char *host_os_release_id_like,
                 const char *host_os_release_version_id,
                 const char *host_os_release_sysext_level,
                 const char *host_extension_scope,

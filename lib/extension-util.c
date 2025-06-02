@@ -7,16 +7,20 @@
 #include "image-deps.h"
 #include "extension-util.h"
 #include "architecture.h"
+#include "strv.h"
 
 int
 extension_release_validate(const char *name,
 			   const char *host_os_release_id,
+			   const char *host_os_release_id_like,
 			   const char *host_os_release_version_id,
 			   const char *host_os_release_sysext_level,
 			   const char *host_extension_scope,
 			   const struct image_deps *extension,
 			   bool verbose)
 {
+  _cleanup_strv_free_ char **id_like_l = NULL;
+
   assert(extension);
 
   if (extension->sysext_scope && host_extension_scope)
@@ -57,11 +61,26 @@ extension_release_validate(const char *name,
       return 1;
     }
 
-  if (!streq(host_os_release_id, extension->id))
+  /* Match extension OS ID against host OS ID or ID_LIKE */
+  if (host_os_release_id_like)
+    {
+#if 0 /* XXX */
+      id_like_l = strv_split(host_os_release_id_like, WHITESPACE);
+#else
+      id_like_l = NULL;
+#endif
+      /* XXX if (!id_like_l)
+	 return log_oom(); */
+    }
+
+  if (!streq(host_os_release_id, extension->id) && !strv_contains(id_like_l, extension->id))
     {
       if (verbose)
-	printf("Extension '%s' is for OS '%s', but deployed on top of '%s'.\n",
-	       name, extension->id, host_os_release_id);
+	printf("Extension '%s' is for OS '%s', but deployed on top of '%s'%s%s%s.\n",
+	       name, extension->id, host_os_release_id,
+	       host_os_release_id_like ? " (like '" : "",
+	       strempty(host_os_release_id_like),
+	       host_os_release_id_like ? "')" : "");
       return 0;
     }
 

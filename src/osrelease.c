@@ -7,7 +7,7 @@
 #include "osrelease.h"
 
 int
-load_os_release(char **id, char **version_id, char **sysext_level)
+load_os_release(char **id, char **id_like, char **version_id, char **sysext_level)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   econf_err error;
@@ -26,7 +26,15 @@ load_os_release(char **id, char **version_id, char **sysext_level)
 
   if ((error = econf_getStringValue(key_file, NULL, "ID", id)))
     {
-      fprintf(stderr, "ERROR: couldn't get key 'ID' from %s: %s\n", osrelease, econf_errString(error));
+      fprintf(stderr, "ERROR: couldn't get key 'ID' from %s: %s\n",
+	      osrelease, econf_errString(error));
+      return -1;
+    }
+
+  if ((error = econf_getStringValue(key_file, NULL, "ID_LIKE", id_like)))
+    {
+      fprintf(stderr, "ERROR: couldn't get key 'ID_LIKE' from %s: %s\n",
+	      osrelease, econf_errString(error));
       return -1;
     }
 

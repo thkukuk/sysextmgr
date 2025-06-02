@@ -252,6 +252,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
     {}
   };
   _cleanup_(freep) char *osrelease_id = NULL;
+  _cleanup_(freep) char *osrelease_id_like = NULL;
   _cleanup_(freep) char *osrelease_sysext_level = NULL;
   _cleanup_(freep) char *osrelease_version_id = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -287,7 +288,8 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 	}
     }
 
-  r = load_os_release(&osrelease_id, &osrelease_version_id, &osrelease_sysext_level);
+  r = load_os_release(&osrelease_id, &osrelease_id_like,
+		      &osrelease_version_id, &osrelease_sysext_level);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -325,8 +327,9 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
           for (size_t i = 0; i < n_remote; i++)
             if (images_remote[i]->deps)
               images_remote[i]->compatible = extension_release_validate(images_remote[i]->deps->image_name,
-                                                                        osrelease_id, osrelease_version_id,
-                                                                        osrelease_sysext_level, "system",
+                                                                        osrelease_id, osrelease_id_like,
+									osrelease_version_id,
+									osrelease_sysext_level, "system",
                                                                         images_remote[i]->deps, p.verbose);
         }
     }
@@ -383,7 +386,8 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
       if (images[n]->deps)
         images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
-                                                           osrelease_id, osrelease_version_id,
+                                                           osrelease_id, osrelease_id_like,
+							   osrelease_version_id,
                                                            osrelease_sysext_level, "system",
                                                            images[n]->deps, p.verbose);
       n++;
@@ -416,7 +420,8 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
           if (images[n]->deps)
             images[n]->compatible = extension_release_validate(images[n]->deps->image_name,
-                                                               osrelease_id, osrelease_version_id,
+                                                               osrelease_id, osrelease_id_like,
+							       osrelease_version_id,
                                                                osrelease_sysext_level, "system",
                                                                images[n]->deps, p.verbose);
           n++;

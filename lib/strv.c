@@ -4,9 +4,9 @@
 
 #include <assert.h>
 #include <stdint.h>
+#include <errno.h>
 
 #if 0
-#include <errno.h>
 #include <fnmatch.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -416,7 +416,10 @@ int strv_split_newlines_full(char ***ret, const char *s, ExtractFlags flags) {
         *ret = TAKE_PTR(l);
         return n;
 }
+#endif
 
+#if 0
+/* XXX */
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags) {
         _cleanup_strv_free_ char **l = NULL;
         size_t n = 0;
@@ -434,15 +437,16 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
                 if (r == 0)
                         break;
 
-                if (!GREEDY_REALLOC(l, n + 2))
-                        return -ENOMEM;
+		l = realloc(l, n+2);
+		if (!l)
+		  return -ENOMEM;
 
                 l[n++] = TAKE_PTR(word);
                 l[n] = NULL;
         }
 
         if (!l) {
-                l = new0(char*, 1);
+	        l = calloc(1, sizeof(char*));
                 if (!l)
                         return -ENOMEM;
         }
@@ -451,7 +455,9 @@ int strv_split_full(char ***t, const char *s, const char *separators, ExtractFla
 
         return (int) n;
 }
+#endif
 
+#if 0
 int strv_split_and_extend_full(char ***t, const char *s, const char *separators, bool filter_duplicates, ExtractFlags flags) {
         char **l;
         int r;
