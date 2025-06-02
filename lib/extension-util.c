@@ -4,6 +4,7 @@
 
 #include <assert.h>
 #include "basics.h"
+#include "osrelease.h"
 #include "image-deps.h"
 #include "extension-util.h"
 #include "architecture.h"
@@ -11,10 +12,7 @@
 
 int
 extension_release_validate(const char *name,
-			   const char *host_os_release_id,
-			   const char *host_os_release_id_like,
-			   const char *host_os_release_version_id,
-			   const char *host_os_release_sysext_level,
+			   const struct osrelease *host_os_release,
 			   const char *host_extension_scope,
 			   const struct image_deps *extension,
 			   bool verbose)
@@ -48,7 +46,7 @@ extension_release_validate(const char *name,
     {
       if (verbose)
 	printf("Extension '%s' does not contain ID in release file but requested to match '%s' or be '_any'",
-	       name, host_os_release_id);
+	       name, host_os_release->id);
       return 0;
     }
 
@@ -62,10 +60,10 @@ extension_release_validate(const char *name,
     }
 
   /* Match extension OS ID against host OS ID or ID_LIKE */
-  if (host_os_release_id_like)
+  if (host_os_release->id_like)
     {
 #if 0 /* XXX */
-      id_like_l = strv_split(host_os_release_id_like, WHITESPACE);
+      id_like_l = strv_split(host_os_release->id_like, WHITESPACE);
 #else
       id_like_l = NULL;
 #endif
@@ -73,19 +71,19 @@ extension_release_validate(const char *name,
 	 return log_oom(); */
     }
 
-  if (!streq(host_os_release_id, extension->id) && !strv_contains(id_like_l, extension->id))
+  if (!streq(host_os_release->id, extension->id) && !strv_contains(id_like_l, extension->id))
     {
       if (verbose)
 	printf("Extension '%s' is for OS '%s', but deployed on top of '%s'%s%s%s.\n",
-	       name, extension->id, host_os_release_id,
-	       host_os_release_id_like ? " (like '" : "",
-	       strempty(host_os_release_id_like),
-	       host_os_release_id_like ? "')" : "");
+	       name, extension->id, host_os_release->id,
+	       host_os_release->id_like ? " (like '" : "",
+	       strempty(host_os_release->id_like),
+	       host_os_release->id_like ? "')" : "");
       return 0;
     }
 
   /* Rolling releases do not typically set VERSION_ID (eg: ArchLinux) */
-  if (isempty(host_os_release_version_id) && isempty(host_os_release_sysext_level))
+  if (isempty(host_os_release->version_id) && isempty(host_os_release->sysext_level))
     {
       if (verbose)
 	printf("No version info on the host (rolling release?), but ID in %s matched.\n", name);
@@ -94,31 +92,31 @@ extension_release_validate(const char *name,
 
   /* If the extension has a sysext API level declared, then it must match the host API
    * level. Otherwise, compare OS version as a whole */
-  if (!isempty(host_os_release_sysext_level) && !isempty(extension->sysext_level))
+  if (!isempty(host_os_release->sysext_level) && !isempty(extension->sysext_level))
     {
-      if (!streq(host_os_release_sysext_level, extension->sysext_level))
+      if (!streq(host_os_release->sysext_level, extension->sysext_level))
 	{
 	  if (verbose)
 	    printf("Extension '%s' is for API level '%s', but running on API level '%s'",
-		   name, extension->sysext_level, host_os_release_sysext_level);
+		   name, extension->sysext_level, host_os_release->sysext_level);
 	  return 0;
 	}
     }
-  else if (!isempty(host_os_release_version_id))
+  else if (!isempty(host_os_release->version_id))
     {
       if (isempty(extension->version_id))
 	{
 	  if (verbose)
 	    printf("Extension '%s' does not contain VERSION_ID in release file but requested to match '%s'",
-		   name, host_os_release_version_id);
+		   name, host_os_release->version_id);
 	  return 0;
 	}
 
-      if (!streq(host_os_release_version_id, extension->version_id))
+      if (!streq(host_os_release->version_id, extension->version_id))
 	{
 	  if (verbose)
 	    printf("Extension '%s' is for OS '%s', but deployed on top of '%s'.\n",
-		   name, extension->version_id, host_os_release_version_id);
+		   name, extension->version_id, host_os_release->version_id);
 	  return 0;
 	}
     }
