@@ -70,7 +70,7 @@ varlink_install (const char *name, const char *url)
   r = sd_varlink_call(link, "org.openSUSE.sysextmgr.Install", params, &result, &error_id);
   if (r < 0)
     {
-      fprintf(stderr, "Failed to call Install method: %s\n", strerror(-r));
+      fprintf(stderr, "Failed to call install method: %s\n", strerror(-r));
       return r;
     }
   /* dispatch before checking error_id, we may need the result for the error
@@ -91,7 +91,7 @@ varlink_install (const char *name, const char *url)
       else
         error = error_id;
 
-      fprintf(stderr, "Failed to call Install method: %s\n", error);
+      fprintf(stderr, "%s\n", error);
       return -EIO;
     }
 
