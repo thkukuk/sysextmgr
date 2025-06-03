@@ -10,9 +10,14 @@
 #include "sysextmgr.h"
 
 static int
-check_if_newer(struct image_entry *old, struct image_entry *new, struct image_entry **update)
+check_if_newer(struct image_entry *old, struct image_entry *new,
+	       struct image_entry **update)
 {
   assert(update);
+
+  /* new image is not compatible */
+  if (!new->compatible)
+    return 0;
 
   if (!streq(old->name, new->name))
       return 0;
