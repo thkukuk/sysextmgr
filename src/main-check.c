@@ -134,7 +134,7 @@ varlink_check(const char *url)
         };
       static const sd_json_dispatch_field dispatch_entry_table[] = {
         { "OldName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, old_name), SD_JSON_MANDATORY },
-        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), 0 },
+        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), SD_JSON_NULLABLE},
         {}
       };
 
