@@ -115,7 +115,7 @@ extension_release_validate(const char *name,
       if (!streq(host_os_release->version_id, extension->version_id))
 	{
 	  if (verbose)
-	    printf("Extension '%s' is for OS '%s', but deployed on top of '%s'.\n",
+	    printf("Extension '%s' is for version '%s', but deployed on top of '%s'.\n",
 		   name, extension->version_id, host_os_release->version_id);
 	  return 0;
 	}
