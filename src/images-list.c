@@ -320,7 +320,7 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 int
 image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 		      const char *filter, bool verify_signature,
-		      struct osrelease *osrelease, bool verbose)
+		      const struct osrelease *osrelease, bool verbose)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -396,7 +396,8 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 
 int
 image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
-		     const char *filter, struct osrelease *osrelease, bool verbose)
+		     const char *filter, const struct osrelease *osrelease,
+		     bool verbose)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
