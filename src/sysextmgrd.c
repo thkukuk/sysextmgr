@@ -858,8 +858,8 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   if (!new)
     {
       _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Failed to find compatible version for '%s' from '%s': %s",
-		   p.install, url, strerror(-r)) < 0)
+      if (asprintf(&error, "Failed to find compatible version for '%s' from '%s'",
+		   p.install, url) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
