@@ -226,6 +226,7 @@ struct parameters {
   char *url;
   bool verbose;
   char *install;
+  char *prefix;
 };
 
 static void
@@ -233,6 +234,7 @@ parameters_free(struct parameters *var)
 {
   var->url = mfree(var->url);
   var->install = mfree(var->install);
+  var->prefix = mfree(var->prefix);
 }
 
 static int
@@ -245,6 +247,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
     .url = NULL,
     .verbose = config.verbose,
     .install = NULL,
+    .prefix = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
@@ -444,32 +447,23 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_(parameters_free) struct parameters p = {
     .url = NULL,
     .verbose = config.verbose,
-    .install = NULL
+    .install = NULL,
+    .prefix = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
     { "Verbose", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, verbose), 0},
+    { "Prefix",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, prefix), 0},
     {}
   };
   _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
+  _cleanup_free_ char *prefix_ext_dir = NULL;
   size_t n_etc = 0;
   const char *url = NULL;
   int r;
 
   log_msg(LOG_INFO, "Varlink method \"Check\" called...");
-
-  r = load_os_release(NULL, &osrelease);
-  if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	error = NULL;
-      log_msg(LOG_ERR, "%s", error);
-      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
-    }
 
   r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
   if (r < 0)
@@ -518,13 +512,26 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
     }
 
+  if (p.prefix)
+    {
+      r = join_path(p.prefix, config.extensions_dir, &prefix_ext_dir);
+      if (r < 0) /* XXX return error msg */
+	return r;
+    }
+  else
+    {
+      prefix_ext_dir = strdup(config.extensions_dir);
+      if (!prefix_ext_dir) /* XXX return error msg */
+	return -ENOMEM;
+    }
+
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
+  r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   config.extensions_dir, strerror(-r)) < 0)
+		   prefix_ext_dir, strerror(-r)) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
@@ -592,17 +599,20 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_(parameters_free) struct parameters p = {
     .url = NULL,
     .verbose = config.verbose,
-    .install = NULL
+    .install = NULL,
+    .prefix = NULL
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
     { "Verbose", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, verbose), 0},
     { "Install", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, install), 0},
+    { "Prefix",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, prefix), 0},
     {}
   };
   _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_etc = NULL;
   size_t n_etc = 0;
+  _cleanup_free_ char *prefix_ext_dir = NULL;
   const char *url = NULL;
   int r;
 
@@ -648,13 +658,26 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
     }
 
+  if (p.prefix)
+    {
+      r = join_path(p.prefix, config.extensions_dir, &prefix_ext_dir);
+      if (r < 0) /* XXX return error msg */
+	return r;
+    }
+  else
+    {
+      prefix_ext_dir = strdup(config.extensions_dir);
+      if (!prefix_ext_dir) /* XXX return error msg */
+	return -ENOMEM;
+    }
+
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(config.extensions_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
+  r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, p.verbose);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
       if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   config.extensions_dir, strerror(-r)) < 0)
+		   prefix_ext_dir, strerror(-r)) < 0)
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
@@ -689,12 +712,12 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
             return r;
 
 	  /* name of the old image in /etc/extensions */
-	  r = join_path(config.extensions_dir, images_etc[n]->deps->image_name, &oldlink);
+	  r = join_path(prefix_ext_dir, images_etc[n]->deps->image_name, &oldlink);
           if (r < 0) /* XXX return error msg */
             return r;
 
 	  /* name of the new image in /etc/extensions */
-	  r = join_path(config.extensions_dir, update->deps->image_name, &linkfn);
+	  r = join_path(prefix_ext_dir, update->deps->image_name, &linkfn);
           if (r < 0) /* XXX return error msg */
             return r;
 
@@ -790,7 +813,8 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_(parameters_free) struct parameters p = {
     .url = NULL,
     .verbose = config.verbose,
-    .install = NULL
+    .install = NULL,
+    .prefix = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
