@@ -37,7 +37,7 @@ image_data_free (struct image_data *var)
 }
 
 int
-varlink_update (const char *url)
+varlink_update (const char *url, const char *prefix)
 {
   _cleanup_(update_free) struct update p = {
     .success = false,
@@ -47,7 +47,7 @@ varlink_update (const char *url)
   static const sd_json_dispatch_field dispatch_table[] = {
     { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct update, success), 0 },
     { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), 0 },
-    { "Updated",    SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_json), 0 },
+    { "Updated",    SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_json), SD_JSON_NULLABLE },
     {}
   };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
@@ -70,6 +70,16 @@ varlink_update (const char *url)
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
         }
     }
+  if (prefix)
+    {
+      r = sd_json_buildo(&params,
+                         SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+        }
+    }
+
   r = sd_varlink_call(link, "org.openSUSE.sysextmgr.Update", params, &result, &error_id);
   if (r < 0)
     {
@@ -98,12 +108,13 @@ varlink_update (const char *url)
       return -EIO;
     }
 
-  if (p.contents_json == NULL)
+  if (sd_json_variant_is_null(p.contents_json)) //p.contents_json == NULL)
     {
       printf("No updates found\n");
       return 0;
     }
-  if (!sd_json_variant_is_array(p.contents_json))
+
+  if (!sd_json_variant_is_null(p.contents_json) && !sd_json_variant_is_array(p.contents_json))
     {
       fprintf(stderr, "JSON 'Data' is no array!\n");
       return -EINVAL;
@@ -153,18 +164,22 @@ main_update(int argc, char **argv)
   struct option const longopts[] = {
     {"url", required_argument, NULL, 'u'},
     {"quiet", no_argument, NULL, 'q'},
+    {"prefix", required_argument, NULL, 'p'},
     {NULL, 0, NULL, '\0'}
   };
-  char *url = NULL;
+  char *url = NULL, *prefix = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "qu:", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "p:qu:", longopts, NULL)) != -1)
     {
       switch (c)
         {
         case 'u':
           url = optarg;
           break;
+	case 'p':
+	  prefix = optarg;
+	  break;
 	case 'q':
 	  arg_quiet = true;
 	  break;
@@ -180,7 +195,7 @@ main_update(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  r = varlink_update(url);
+  r = varlink_update(url, prefix);
   if (r < 0)
     {
       if (VARLINK_IS_NOT_RUNNING(r))
