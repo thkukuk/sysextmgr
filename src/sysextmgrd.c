@@ -500,18 +500,6 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
   else
     url = config.url;
 
-  r = load_os_release(NULL, &osrelease);
-  if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	error = NULL;
-      log_msg(LOG_ERR, "%s", error);
-      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
-    }
-
   if (p.prefix)
     {
       r = join_path(p.prefix, config.extensions_dir, &prefix_ext_dir);
@@ -523,6 +511,18 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
       prefix_ext_dir = strdup(config.extensions_dir);
       if (!prefix_ext_dir) /* XXX return error msg */
 	return -ENOMEM;
+    }
+
+  r = load_os_release(p.prefix, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
     }
 
   /* list of "installed" images visible to systemd-sysext */
@@ -646,18 +646,6 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
   else
     url = config.url;
 
-  r = load_os_release(NULL, &osrelease);
-  if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	error = NULL;
-      log_msg(LOG_ERR, "%s", error);
-      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
-				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
-                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
-    }
-
   if (p.prefix)
     {
       r = join_path(p.prefix, config.extensions_dir, &prefix_ext_dir);
@@ -669,6 +657,20 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
       prefix_ext_dir = strdup(config.extensions_dir);
       if (!prefix_ext_dir) /* XXX return error msg */
 	return -ENOMEM;
+    }
+
+  log_msg(LOG_INFO, "Update parameters: url='%s', prefix='%s'", strna(p.url), strna(p.prefix));
+
+  r = load_os_release(p.prefix, &osrelease);
+  if (r < 0)
+    {
+      _cleanup_free_ char *error = NULL;
+      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
+	error = NULL;
+      log_msg(LOG_ERR, "%s", error);
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
     }
 
   /* list of "installed" images visible to systemd-sysext */
