@@ -679,15 +679,24 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
         {
           _cleanup_free_ char *fn = NULL;
           _cleanup_free_ char *linkfn = NULL;
+	  _cleanup_free_ char *oldlink = NULL;
 
 	  log_msg(LOG_NOTICE, "Updating %s -> %s", images_etc[n]->deps->image_name, update->deps->image_name);
 
+	  /* name of the new image in the store */
           r = join_path(config.sysext_store_dir, update->deps->image_name, &fn);
           if (r < 0) /* XXX return error msg */
             return r;
 
-          if (asprintf(&linkfn, "%s/%s.raw", config.extensions_dir, update->name) < 0)
-            return -ENOMEM;
+	  /* name of the old image in /etc/extensions */
+	  r = join_path(config.extensions_dir, images_etc[n]->deps->image_name, &oldlink);
+          if (r < 0) /* XXX return error msg */
+            return r;
+
+	  /* name of the new image in /etc/extensions */
+	  r = join_path(config.extensions_dir, update->deps->image_name, &linkfn);
+          if (r < 0) /* XXX return error msg */
+            return r;
 
           if (!update->local && update->remote)
             {
@@ -728,10 +737,10 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
                 }
             }
 
-          if (unlink(linkfn) < 0)
+          if (unlink(oldlink) < 0)
             {
 	      _cleanup_free_ char *error = NULL;
-	      if (asprintf(&error, "Error to delete '%s': %m", linkfn) < 0)
+	      if (asprintf(&error, "Error to delete '%s': %m", oldlink) < 0)
 		error = NULL;
 
 	      log_msg(LOG_ERR, "%s", error);
@@ -740,7 +749,9 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 					SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
             }
 
-          if (symlink(fn, linkfn) < 0)
+	  /* There could be several older versions of the image, they all get replaced with a link
+	     to the new version */
+          if (symlink(fn, linkfn) < 0 && errno != EEXIST)
             {
 	      _cleanup_free_ char *error = NULL;
 	      if (asprintf(&error, "Error to symlink '%s' to '%s': %m", fn, linkfn) < 0)
@@ -877,8 +888,9 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   if (r < 0) /* XXX return error msg */
     return r;
 
-  if (asprintf(&linkfn, "%s/%s.raw", config.extensions_dir, new->name) < 0)
-    return -ENOMEM;
+  r = join_path(config.extensions_dir, new->deps->image_name, &linkfn);
+  if (r < 0) /* XXX return error msg */
+    return r;
 
   if (!new->local && new->remote)
     {
