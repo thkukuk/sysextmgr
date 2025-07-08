@@ -54,6 +54,14 @@ Only the image name without version and architecture information are specified:
 `sysextmgrcli` will:
 * Check all snapshots for list of used images and remove the no longer needed ones.
 
+### Enable images
+
+`sysextmgrcli` will not enable sysext images, this is done with [systemd-sysext](https://manpages.opensuse.org/systemd-sysext.8).
+
+* Manual enabling images: `systemd-sysext merge`
+* Manual disabling images: `systemd-sysext unmerge`
+* Automatically enabling images at boot time: `systemctl enable systemd-sysext.service`
+
 ## Dependency handling
 
 The dependencies of sysext images are stored in a file inside of the image. To get the dependencies of an image you need to download and loopback mount it, which can end in a huge amount of data to download.
