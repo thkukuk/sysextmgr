@@ -108,7 +108,7 @@ varlink_update (const char *url, const char *prefix)
       return -EIO;
     }
 
-  if (sd_json_variant_is_null(p.contents_json)) //p.contents_json == NULL)
+  if (sd_json_variant_is_null(p.contents_json))
     {
       printf("No updates found\n");
       return 0;
