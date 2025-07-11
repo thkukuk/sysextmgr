@@ -131,6 +131,93 @@ discover_images(const char *path, char ***result)
 }
 
 static int
+directory_filter(const struct dirent *de)
+{
+  /* only directories, but not "." or ".." */
+  if (de->d_type == DT_DIR && !streq(de->d_name, ".") && !streq(de->d_name, ".."))
+    return 1;
+  return 0;
+}
+
+static int
+snapshot_list(const char *snapshot, struct image_entry **list, size_t n)
+{
+  struct dirent **de = NULL;
+  int r;
+
+  assert(list);
+
+  _cleanup_free_ char *path = NULL;
+  if (asprintf(&path, "/.snapshots/%s/snapshot/etc/extensions", snapshot) < 0)
+    return -ENOMEM;
+
+  int num_dirs = scandir(path, &de, image_filter, NULL /* alphasort */);
+  if (num_dirs < 0)
+    return -errno;
+
+  for (int i = 0; i < num_dirs; i++)
+    {
+      _cleanup_free_ char *p = NULL;
+      char *fn = NULL;
+
+      if (de[i]->d_type == DT_LNK)
+	{
+
+	  r = readlink_malloc(path, de[i]->d_name, &p);
+	  if (r < 0)
+	    return r;
+
+	  fn = strrchr(p, '/');
+	  if (fn)
+	    ++fn;
+	  else
+	    fn = p;
+	}
+      else
+	fn = de[i]->d_name;
+
+      for (size_t j = 0; j < n; j++)
+	{
+	  if (streq(fn, list[j]->image_name))
+	    list[j]->refcount++;
+	}
+
+      free(de[i]);
+    }
+
+  free(de);
+
+  return 0;
+}
+
+int
+calc_refcount(struct image_entry **list, size_t n)
+{
+  struct dirent **de = NULL;
+  int r = 0;
+
+  if (n == 0)
+    return 0;
+
+  assert(list);
+
+  int num_dirs = scandir("/.snapshots", &de, directory_filter, NULL /* alphasort */);
+  if (num_dirs < 0)
+    return -errno;
+
+  for (int i = 0; i < num_dirs; i++)
+    {
+      r = snapshot_list(de[i]->d_name, list, n);
+      free(de[i]);
+      if (r < 0)
+	break;
+    }
+  free(de);
+
+  return r;
+}
+
+static int
 image_read_metadata(const char *image_name, struct image_deps **res)
 {
   _cleanup_(free_image_depsp) struct image_deps *image = NULL;
@@ -157,7 +244,7 @@ image_read_metadata(const char *image_name, struct image_deps **res)
       return -EINVAL;
     }
 
-  r = load_ext_release(image_name, tmpfn, &image);
+  r = load_ext_release(tmpfn, &image);
   if (r < 0)
     return r;
 
@@ -367,6 +454,9 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	  images[pos] = calloc(1, sizeof(struct image_entry));
 	  if (images[pos] == NULL)
 	    return -ENOMEM;
+	  images[pos]->image_name = strdup(list[i]);
+	  if (images[pos]->image_name == NULL)
+	    return -ENOMEM;
 	  images[pos]->name = strdup(name);
 	  if (images[pos]->name == NULL)
 	    return -ENOMEM;
@@ -378,7 +468,7 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 
 	  if (images[pos]->deps && osrelease)
 	    images[pos]->compatible =
-	      extension_release_validate(images[pos]->deps->image_name,
+	      extension_release_validate(images[pos]->image_name,
 					 osrelease, "system",
 					 images[pos]->deps, verbose);
 
@@ -397,7 +487,7 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 int
 image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
 		     const char *filter, const struct osrelease *osrelease,
-		     bool verbose)
+		     bool read_metadata, bool verbose)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -450,16 +540,22 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
 	  images[pos]->name = strdup(name);
 	  if (images[pos]->name == NULL)
 	    return -ENOMEM;
+	  images[pos]->image_name = strdup(list[i]);
+	  if (images[pos]->image_name == NULL)
+	    return -ENOMEM;
 
 	  images[pos]->local = true;
 
-	  r = image_read_metadata(list[i], &(images[pos]->deps));
-	  if (r < 0)
-	    return r;
+	  if (read_metadata)
+	    {
+	      r = image_read_metadata(list[i], &(images[pos]->deps));
+	      if (r < 0)
+		return r;
+	    }
 
 	  if (images[pos]->deps && osrelease)
 	    images[pos]->compatible =
-	      extension_release_validate(images[pos]->deps->image_name,
+	      extension_release_validate(images[pos]->image_name,
 					 osrelease, "system",
 					 images[pos]->deps, verbose);
 

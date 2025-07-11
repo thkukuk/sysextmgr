@@ -11,7 +11,7 @@ free_image_deps(struct image_deps *e)
   if (!e)
     return;
 
-  e->image_name = mfree(e->image_name);
+  e->image_name_json = mfree(e->image_name_json);
   e->sysext_version_id = mfree(e->sysext_version_id);
   e->sysext_scope = mfree(e->sysext_scope);
   e->id = mfree(e->id);
@@ -47,7 +47,7 @@ free_image_deps_list(struct image_deps ***images)
 void
 dump_image_deps(struct image_deps *e)
 {
-  printf("image name: %s\n", e->image_name);
+  printf("image name: %s\n", e->image_name_json);
   printf("* sysext version_id: %s\n", e->sysext_version_id);
   printf("* sysext scope: %s\n", e->sysext_scope);
   printf("* id: %s\n", e->id);
@@ -59,7 +59,8 @@ dump_image_deps(struct image_deps *e)
 void
 free_image_entry(struct image_entry *e)
 {
-  free(e->name);
+  e->name = mfree(e->name);
+  e->image_name = mfree(e->image_name);
   free_image_depsp(&(e->deps));
 }
 

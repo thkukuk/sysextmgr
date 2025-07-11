@@ -37,7 +37,7 @@ struct image_data {
   bool local;
   bool installed;
   bool compatible;
-
+  int  refcount;
 };
 
 static void
@@ -127,7 +127,7 @@ varlink_list_images (const char *url)
     }
 
   /* XXX Use table_print_with_pager */
-  printf (" R L I C Name\n");
+  printf (" R L I C  # Name\n");
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -145,6 +145,7 @@ varlink_list_images (const char *url)
 	  .local = false,
 	  .installed = false,
 	  .compatible = false,
+	  .refcount = 0,
 	};
       static const sd_json_dispatch_field dispatch_entry_table[] = {
         { "NAME",              SD_JSON_VARIANT_STRING, sd_json_dispatch_string,   offsetof(struct image_data, name), SD_JSON_MANDATORY },
@@ -159,6 +160,7 @@ varlink_list_images (const char *url)
 	{ "REMOTE",            SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, remote), 0},
 	{ "INSTALLED",         SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, installed), 0},
 	{ "COMPATIBLE",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct image_data, compatible), 0},
+	{ "REFCOUNT",          SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int,     offsetof(struct image_data, refcount), 0},
         {}
       };
 
@@ -192,10 +194,14 @@ varlink_list_images (const char *url)
 	printf(" x");
       else
 	printf("  ");
+      if (e.refcount > 0)
+	printf(" %2d", e.refcount);
+      else
+	printf("  -");
       printf(" %s\n", e.image_name);
     }
 
-  printf("R = remote, L = local, I = installed, C = commpatible\n");
+  printf("R = remote, L = local, I = installed, C = commpatible, # = used in snapshots\n");
 
   return 0;
 }

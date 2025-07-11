@@ -26,7 +26,7 @@ int
 parse_image_deps(sd_json_variant *json, struct image_deps **res)
 {
   static const sd_json_dispatch_field dispatch_table[] = {
-    { "image_name",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct image_deps, image_name),       0 },
+    { "image_name",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct image_deps, image_name_json),   0 },
     { "SYSEXT_VERSION_ID", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct image_deps, sysext_version_id), 0 },
     { "SYSEXT_SCOPE",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct image_deps, sysext_scope),      0 },
     { "ID",                SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct image_deps, id), 0 },

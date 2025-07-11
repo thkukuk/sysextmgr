@@ -28,7 +28,7 @@ check_if_newer(struct image_entry *old, struct image_entry *new,
 
   /* both images are identical, make sure flags are identical, too */
   if (*update &&
-      streq((*update)->deps->image_name, new->deps->image_name) &&
+      streq((*update)->image_name, new->image_name) &&
       streq((*update)->deps->sysext_version_id,
 	    new->deps->sysext_version_id))
     {
@@ -59,11 +59,13 @@ check_if_newer(struct image_entry *old, struct image_entry *new,
       if (*update == NULL)
 	return -ENOMEM;
       (*update)->name = strdup(new->name);
+      (*update)->image_name = strdup(new->image_name);
       (*update)->deps = TAKE_PTR(new->deps);
       (*update)->local = new->local;
       (*update)->remote = new->remote;
       (*update)->installed = new->installed;
       (*update)->compatible = new->compatible;
+      (*update)->refcount = new->refcount;
     }
 
   return 0;
@@ -103,7 +105,7 @@ get_latest_version(struct image_entry *curr, struct image_entry **new,
     }
 
   /* now do the same with local images */
-  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, curr->name, osrelease, verbose);
+  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, curr->name, osrelease, true, verbose);
   if (r < 0)
     {
       fprintf(stderr, "Searching for images in '%s' failed: %s\n",

@@ -9,22 +9,17 @@
 #include "extrelease.h"
 
 int
-load_ext_release(const char *name, const char *fn, struct image_deps **res)
+load_ext_release(const char *fn, struct image_deps **res)
 {
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   _cleanup_(free_image_depsp) struct image_deps *e = NULL;
   econf_err error;
 
-  assert(name);
   assert(fn);
   assert(res);
 
   e = calloc(1, sizeof(struct image_deps));
   if (e == NULL)
-    oom();
-
-  e->image_name = strdup(name);
-  if (e->image_name == NULL)
     oom();
 
   if ((error = econf_readFile(&key_file, fn, "=", "#")))
