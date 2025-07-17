@@ -45,7 +45,7 @@ extension_release_validate(const char *name,
   if (isempty(extension->id))
     {
       if (verbose)
-	printf("Extension '%s' does not contain ID in release file but requested to match '%s' or be '_any'",
+	printf("Extension '%s' does not contain ID in release file but requested to match '%s' or be '_any'\n",
 	       name, host_os_release->id);
       return 0;
     }
@@ -97,7 +97,7 @@ extension_release_validate(const char *name,
       if (!streq(host_os_release->sysext_level, extension->sysext_level))
 	{
 	  if (verbose)
-	    printf("Extension '%s' is for API level '%s', but running on API level '%s'",
+	    printf("Extension '%s' is for API level '%s', but running on API level '%s'\n",
 		   name, extension->sysext_level, host_os_release->sysext_level);
 	  return 0;
 	}
@@ -107,7 +107,7 @@ extension_release_validate(const char *name,
       if (isempty(extension->version_id))
 	{
 	  if (verbose)
-	    printf("Extension '%s' does not contain VERSION_ID in release file but requested to match '%s'",
+	    printf("Extension '%s' does not contain VERSION_ID in release file but requested to match '%s'\n",
 		   name, host_os_release->version_id);
 	  return 0;
 	}
