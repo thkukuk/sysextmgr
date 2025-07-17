@@ -39,6 +39,9 @@ extern int main_list(int argc, char **argv);
 /* main-check.c */
 extern int main_check(int argc, char **argv);
 
+/* main-cleanup.c */
+extern int main_cleanup(int argc, char **argv);
+
 /* main-update.c */
 extern int main_update(int argc, char **argv);
 

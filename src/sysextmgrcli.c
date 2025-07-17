@@ -23,7 +23,7 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysextmgrcli [command] [options]\n", output);
-  fputs("Commands: create-json, check, dump-json, install, list, merge-json, update\n\n", output);
+  fputs("Commands: create-json, check, cleanup, dump-json, install, list, merge-json, update\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
@@ -32,9 +32,13 @@ usage(int retval)
   fputs("  -o, --output        Output file in json format\n", output);
   fputs("\n", output);
 
-  fputs("check - Check if there are newer images available\n", output);
+  fputs("check - Check if updates are available and all installed images are compatible\n", output);
   fputs("Options for check:\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
+
+  fputs("cleanup - Remove images no longer referenced\n", output);
+  fputs("Options for check:\n", output);
+  fputs("  -q, --quiet           Return 0 if images got removed, else ENODATA\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
   fputs("Options for dump-json:\n", output);
@@ -338,6 +342,8 @@ main(int argc, char **argv)
     return main_create_json(--argc, ++argv);
   else if (strcmp(argv[1], "check") == 0)
     return main_check(--argc, ++argv);
+  else if (strcmp(argv[1], "cleanup") == 0)
+    return main_cleanup(--argc, ++argv);
   else if (strcmp(argv[1], "dump-json") == 0)
     return main_dump_json(--argc, ++argv);
   else if (strcmp(argv[1], "install") == 0)

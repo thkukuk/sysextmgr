@@ -70,7 +70,8 @@ inc = include_directories(['include'])
 
 sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c',
   'src/main-check.c', 'src/main-list.c', 'src/main-install.c', 
-  'src/main-update.c', 'src/image-deps.c', 'src/varlink-client.c']
+  'src/main-update.c', 'src/main-cleanup.c', 'src/image-deps.c',
+  'src/varlink-client.c']
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
   'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',
