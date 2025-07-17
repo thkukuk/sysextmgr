@@ -40,7 +40,7 @@ image_data_free(struct image_data *var)
 }
 
 int
-varlink_check(const char *url)
+varlink_check(const char *url, const char *prefix)
 {
   _cleanup_(update_free) struct update p = {
     .success = false,
@@ -76,6 +76,16 @@ varlink_check(const char *url)
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
         }
     }
+  if (prefix)
+    {
+      r = sd_json_buildo(&params,
+                         SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+        }
+    }
+
   if (arg_verbose)
     {
       r = sd_json_variant_merge_objectbo(&params,
@@ -227,19 +237,23 @@ main_check(int argc, char **argv)
 {
   struct option const longopts[] = {
     {"url", required_argument, NULL, 'u'},
+    {"prefix", required_argument, NULL, 'p'},
     {"verbose", no_argument, NULL, 'v'},
     {"quiet", no_argument, NULL, 'q'},
     {NULL, 0, NULL, '\0'}
   };
-  char *url = NULL;
+  char *url = NULL, *prefix = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "qu:v", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "p:qu:v", longopts, NULL)) != -1)
     {
       switch (c)
         {
         case 'u':
           url = optarg;
+          break;
+	case 'p':
+	  prefix = optarg;
           break;
 	case 'v':
 	  arg_verbose = true;
@@ -259,7 +273,7 @@ main_check(int argc, char **argv)
       usage(EXIT_FAILURE);
     }
 
-  r = varlink_check(url);
+  r = varlink_check(url, prefix);
   if (r < 0)
     {
       if (VARLINK_IS_NOT_RUNNING(r))

@@ -34,7 +34,8 @@ usage(int retval)
 
   fputs("check - Check if updates are available and all installed images are compatible\n", output);
   fputs("Options for check:\n", output);
-  fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
+  fputs("  -p, --prefix          Prefix to different root directory\n", output);
+  fputs("  -q, --quiet           Don't print list of images but use return values\n", output);
 
   fputs("cleanup - Remove images no longer referenced\n", output);
   fputs("Options for check:\n", output);
@@ -65,6 +66,7 @@ usage(int retval)
 
   fputs("update - Check if there are newer images available and update them\n", output);
   fputs("Options for update:\n", output);
+  fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
   fputs("\n", output);
