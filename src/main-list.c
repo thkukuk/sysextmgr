@@ -63,8 +63,8 @@ varlink_list_images (const char *url)
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct list_images, success), 0 },
-    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct list_images, error), 0 },
-    { "Images",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct list_images, contents_json), 0 },
+    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct list_images, error), SD_JSON_NULLABLE },
+    { "Images",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct list_images, contents_json), SD_JSON_NULLABLE },
     {}
   };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;

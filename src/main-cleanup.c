@@ -88,12 +88,13 @@ varlink_cleanup(void)
       return -EIO;
     }
 
-  if (p.contents_json == NULL)
+  if (sd_json_variant_is_null(p.contents_json))
     {
-      printf("No sysext images to remove found\n");
-      return 0;
+      printf ("No sysext images removed.\n");
+      return -ENODATA;
     }
-  if (!sd_json_variant_is_null(p.contents_json) && !sd_json_variant_is_array(p.contents_json))
+
+  if (!sd_json_variant_is_array(p.contents_json))
     {
       fprintf(stderr, "JSON data 'Images' is no array!\n");
       return -EINVAL;
@@ -101,15 +102,7 @@ varlink_cleanup(void)
 
   /* XXX Use table_print_with_pager */
   if (!arg_quiet)
-    {
-      if (sd_json_variant_elements(p.contents_json))
-	printf ("Removed sysext images:\n");
-      else
-	{
-	  printf ("No sysext images removed.\n");
-	  return -ENODATA;
-	}
-    }
+    printf ("Removed sysext images:\n");
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -139,8 +132,6 @@ varlink_cleanup(void)
 
   return 0;
 }
-
-
 
 int
 main_cleanup(int argc, char **argv)

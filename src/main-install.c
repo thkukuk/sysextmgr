@@ -34,8 +34,8 @@ varlink_install (const char *name, const char *url)
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "Success",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct install, success), 0 },
-    { "ErrorMsg",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct install, error), 0 },
-    { "Installed", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct install, installed), 0 },
+    { "ErrorMsg",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct install, error), SD_JSON_NULLABLE },
+    { "Installed", SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct install, installed), SD_JSON_NULLABLE },
     {}
   };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
@@ -96,7 +96,7 @@ varlink_install (const char *name, const char *url)
     }
 
   if (!arg_quiet)
-    printf("%s\n", p.installed);
+    printf("%s\n", strna(p.installed));
 
   return 0;
 }

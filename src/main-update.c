@@ -46,7 +46,7 @@ varlink_update (const char *url, const char *prefix)
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct update, success), 0 },
-    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), 0 },
+    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), SD_JSON_NULLABLE },
     { "Updated",    SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_json), SD_JSON_NULLABLE },
     {}
   };
@@ -114,7 +114,7 @@ varlink_update (const char *url, const char *prefix)
       return 0;
     }
 
-  if (!sd_json_variant_is_null(p.contents_json) && !sd_json_variant_is_array(p.contents_json))
+  if (!sd_json_variant_is_array(p.contents_json))
     {
       fprintf(stderr, "JSON 'Data' is no array!\n");
       return -EINVAL;
