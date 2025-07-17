@@ -15,14 +15,16 @@ static bool arg_quiet = false;
 struct update {
   bool success;
   char *error;
-  sd_json_variant *contents_json;
+  sd_json_variant *contents_update;
+  sd_json_variant *contents_broken;
 };
 
 static void
 update_free(struct update *var)
 {
   var->error = mfree(var->error);
-  var->contents_json = sd_json_variant_unref(var->contents_json);
+  var->contents_update = sd_json_variant_unref(var->contents_update);
+  var->contents_broken = sd_json_variant_unref(var->contents_broken);
 }
 
 struct image_data {
@@ -43,12 +45,14 @@ varlink_check(const char *url)
   _cleanup_(update_free) struct update p = {
     .success = false,
     .error = NULL,
-    .contents_json = NULL,
+    .contents_update = NULL,
+    .contents_broken = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
-    { "Success",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct update, success), 0 },
-    { "ErrorMsg",   SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), 0 },
-    { "Images",     SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_json), 0 },
+    { "Success",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct update, success), 0 },
+    { "ErrorMsg",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct update, error), SD_JSON_NULLABLE },
+    { "Images",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_update), SD_JSON_NULLABLE },
+    { "BrokenImages", SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct update, contents_broken), SD_JSON_NULLABLE },
     {}
   };
   _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
@@ -56,6 +60,7 @@ varlink_check(const char *url)
   sd_json_variant *result;
   const char *error_id = NULL;
   bool update_available = false;
+  bool broken_images = false;
   int r;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
@@ -110,22 +115,29 @@ varlink_check(const char *url)
       return -EIO;
     }
 
-  if (p.contents_json == NULL)
+  if (sd_json_variant_is_null(p.contents_update) && sd_json_variant_is_null(p.contents_broken))
     {
       printf("No updates found\n");
       return 0;
     }
-  if (!sd_json_variant_is_array(p.contents_json))
+
+  if (!sd_json_variant_is_null(p.contents_update) && !sd_json_variant_is_array(p.contents_update))
     {
-      fprintf(stderr, "JSON 'Data' is no array!\n");
+      fprintf(stderr, "JSON image update data is no array!\n");
+      return -EINVAL;
+    }
+
+  if (!sd_json_variant_is_null(p.contents_broken) && !sd_json_variant_is_array(p.contents_broken))
+    {
+      fprintf(stderr, "JSON broken image data is no array!\n");
       return -EINVAL;
     }
 
   /* XXX Use table_print_with_pager */
-  if (!arg_quiet)
+  if (!arg_quiet && sd_json_variant_elements(p.contents_update) > 0)
     printf ("Old image -> New Image\n");
 
-  for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
+  for (size_t i = 0; i < sd_json_variant_elements(p.contents_update); i++)
     {
       _cleanup_(image_data_free) struct image_data e =
         {
@@ -138,7 +150,7 @@ varlink_check(const char *url)
         {}
       };
 
-      sd_json_variant *entry = sd_json_variant_by_index(p.contents_json, i);
+      sd_json_variant *entry = sd_json_variant_by_index(p.contents_update, i);
       if (!sd_json_variant_is_object(entry))
         {
           fprintf(stderr, "entry is no object!\n");
@@ -164,6 +176,43 @@ varlink_check(const char *url)
 	      printf ("%s -> No compatible newer version found\n", e.old_name);
 	}
     }
+
+  /* XXX Use table_print_with_pager */
+  if (!arg_quiet && sd_json_variant_elements(p.contents_broken) > 0)
+    printf ("Incompatible installed images without update:\n");
+
+  for (size_t i = 0; i < sd_json_variant_elements(p.contents_broken); i++)
+    {
+      static const sd_json_dispatch_field dispatch_entry_table[] = {
+        { "IMAGE_NAME", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+        {}
+      };
+      _cleanup_free_ char *image_name = NULL;
+
+      sd_json_variant *entry = sd_json_variant_by_index(p.contents_broken, i);
+      if (!sd_json_variant_is_object(entry))
+        {
+          fprintf(stderr, "entry is no object!\n");
+          return -EINVAL;
+        }
+
+      r = sd_json_dispatch(entry, dispatch_entry_table, SD_JSON_ALLOW_EXTENSIONS, &image_name);
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to parse JSON sysext image entry: %s\n", strerror(-r));
+          return r;
+        }
+
+      if (image_name)
+	broken_images = true;
+
+      if (!arg_quiet && image_name)
+	printf ("%s\n", image_name);
+    }
+
+  /* no images for the installed version available */
+  if (broken_images)
+    return ENOMEDIUM;
 
   if (!update_available)
     return ENODATA;
@@ -217,6 +266,11 @@ main_check(int argc, char **argv)
         fprintf(stderr, "sysextmgrd not running!\n");
       return -r;
     }
+
+  /* Return ENOMEDIUM if current image is incompatible and there is no update */
+  if (r == ENOMEDIUM && arg_quiet)
+    return ENOMEDIUM;
+
   /* Return ENODATA if there is no update and we should not print anything */
   if (r == ENODATA && arg_quiet)
     return ENODATA;

@@ -148,21 +148,17 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
 	       sd_varlink_method_flags_t _unused_(flags),
 	       void *userdata)
 {
-  struct p {
-    int code;
-  } p = {
-    .code = 0
-  };
   static const sd_json_dispatch_field dispatch_table[] = {
-    { "ExitCode", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int, offsetof(struct p, code), 0 },
+    { "ExitCode", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int, 0, 0 },
     {}
   };
   sd_event *loop = userdata;
+  int exit_code = 0;
   int r;
 
   log_msg(LOG_INFO, "Varlink method \"Quit\" called...");
 
-  r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+  r = sd_varlink_dispatch(link, parameters, dispatch_table, &exit_code);
   if (r != 0)
     {
       log_msg(LOG_ERR, "Quit request: varlink dispatch failed: %s", strerror(-r));
@@ -182,12 +178,16 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
       return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
     }
 
-  r = sd_event_exit(loop, p.code);
+  /* exit code must be negative, systemd will convert that to a positive value */
+  if (exit_code > 0)
+    exit_code = -exit_code;
+
+  r = sd_event_exit(loop, exit_code);
   if (r != 0)
     {
       log_msg(LOG_ERR, "Quit request: disabling event loop failed: %s",
 	      strerror(-r));
-      return sd_varlink_errorbo(link, "org.openSUSE.wtmpdb.InternalError",
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
                                 SD_JSON_BUILD_PAIR_BOOLEAN("Success", false));
     }
 
@@ -448,7 +448,8 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 		sd_varlink_method_flags_t _unused_(flags),
 		void _unused_(*userdata))
 {
-  _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *updates = NULL;
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *broken = NULL;
   _cleanup_(parameters_free) struct parameters p = {
     .url = NULL,
     .verbose = config.verbose,
@@ -550,7 +551,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
       log_msg(LOG_NOTICE, "No installed images found.");
       /* XXX provide error message to client */
       return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
-				SD_JSON_BUILD_PAIR_VARIANT("Images", array));
+				SD_JSON_BUILD_PAIR_VARIANT("Images", updates));
     }
 
   for (size_t n = 0; n < n_etc; n++)
@@ -562,23 +563,41 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
         {
 	  log_msg(LOG_NOTICE, "Update available: %s -> %s", images_etc[n]->image_name, update->image_name);
 
-	  r = sd_json_variant_append_arraybo(&array,
+	  r = sd_json_variant_append_arraybo(&updates,
 					     SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
 					     SD_JSON_BUILD_PAIR_STRING("NewName", update->image_name));
         }
       else /* No update found */
-	r = sd_json_variant_append_arraybo(&array,
-					   SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
-					   SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
-      if(r < 0)
 	{
-	  log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
-	  /* XXX */
+	  /* No update, check if old image is still compatible */
+	  if (!images_etc[n]->compatible)
+	    {
+	      r = sd_json_variant_append_arraybo(&broken,
+						 SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_etc[n]->image_name));
+	      if(r < 0)
+		{
+		  log_msg(LOG_ERR, "Appending broken image failed: %s", strerror(-r));
+		  /* XXX */
+		}
+	    }
+	  else
+	    {
+	      r = sd_json_variant_append_arraybo(&updates,
+						 SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
+						 SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
+	      if(r < 0)
+		{
+		  log_msg(LOG_ERR, "Appending updates failed: %s", strerror(-r));
+		  /* XXX */
+		}
+
+	    }
 	}
     }
 
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
-			    SD_JSON_BUILD_PAIR_VARIANT("Images", array));
+			    SD_JSON_BUILD_PAIR_VARIANT("Images", updates),
+			    SD_JSON_BUILD_PAIR_VARIANT("BrokenImages", broken));
 }
 
 static void
@@ -1207,7 +1226,7 @@ run_varlink(void)
       return r;
     }
 
-  r = sd_varlink_server_set_description(varlink_server, "wtmpdbd");
+  r = sd_varlink_server_set_description(varlink_server, "sysextmgr daemon");
   if (r < 0)
     {
       log_msg(LOG_ERR, "Failed to set varlink server description: %s",
@@ -1216,7 +1235,7 @@ run_varlink(void)
     }
 
   r = sd_varlink_server_set_info(varlink_server, NULL, PACKAGE" (sysextmgrd)",
-				  VERSION, "https://github.com/thkukuk/sysext-cli");
+				  VERSION, "https://github.com/thkukuk/sysextmgr");
   if (r < 0)
     return r;
 
