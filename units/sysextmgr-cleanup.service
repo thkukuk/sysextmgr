@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily cleanup of sysext images
+After=local-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sysextmgrcli cleanup
