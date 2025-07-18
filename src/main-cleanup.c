@@ -88,7 +88,7 @@ varlink_cleanup(void)
       return -EIO;
     }
 
-  if (sd_json_variant_is_null(p.contents_json))
+  if (p.contents_json == NULL || sd_json_variant_is_null(p.contents_json))
     {
       printf ("No sysext images removed.\n");
       return -ENODATA;

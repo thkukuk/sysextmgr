@@ -125,19 +125,20 @@ varlink_check(const char *url, const char *prefix)
       return -EIO;
     }
 
-  if (sd_json_variant_is_null(p.contents_update) && sd_json_variant_is_null(p.contents_broken))
+  if ((p.contents_update == NULL || sd_json_variant_is_null(p.contents_update)) &&
+       (p.contents_broken == NULL || sd_json_variant_is_null(p.contents_broken)))
     {
       printf("No updates found\n");
       return 0;
     }
 
-  if (!sd_json_variant_is_null(p.contents_update) && !sd_json_variant_is_array(p.contents_update))
+  if (p.contents_update != NULL && !sd_json_variant_is_null(p.contents_update) && !sd_json_variant_is_array(p.contents_update))
     {
       fprintf(stderr, "JSON image update data is no array!\n");
       return -EINVAL;
     }
 
-  if (!sd_json_variant_is_null(p.contents_broken) && !sd_json_variant_is_array(p.contents_broken))
+  if (p.contents_broken != NULL && !sd_json_variant_is_null(p.contents_broken) && !sd_json_variant_is_array(p.contents_broken))
     {
       fprintf(stderr, "JSON broken image data is no array!\n");
       return -EINVAL;
