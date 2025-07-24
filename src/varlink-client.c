@@ -12,7 +12,7 @@ connect_to_sysextmgrd(sd_varlink **ret, const char *socket)
   r = sd_varlink_connect_address(&link, socket);
   if (r < 0)
     {
-      fprintf(stderr, "Failed to connect to %s: %s", socket, strerror(-r));
+      fprintf(stderr, "Failed to connect to %s: %s\n", socket, strerror(-r));
       return r;
     }
 
