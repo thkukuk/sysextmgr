@@ -223,10 +223,10 @@ varlink_check(const char *url, const char *prefix)
 
   /* no images for the installed version available */
   if (broken_images)
-    return ENOMEDIUM;
+    return -ENOMEDIUM;
 
   if (!update_available)
-    return ENODATA;
+    return -ENODATA;
   else
     return 0;
 }
@@ -283,11 +283,11 @@ main_check(int argc, char **argv)
     }
 
   /* Return ENOMEDIUM if current image is incompatible and there is no update */
-  if (r == ENOMEDIUM && arg_quiet)
+  if (r == -ENOMEDIUM && arg_quiet)
     return ENOMEDIUM;
 
   /* Return ENODATA if there is no update and we should not print anything */
-  if (r == ENODATA && arg_quiet)
+  if (r == -ENODATA && arg_quiet)
     return ENODATA;
 
   return EXIT_SUCCESS;
