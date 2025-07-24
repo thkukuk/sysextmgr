@@ -338,6 +338,17 @@ main(int argc, char **argv)
   };
   int c;
 
+  const char *progname = basename(argv[0]);
+
+  if (strlen(progname) > 4)
+    {
+      /* check if this is XX-sysext-update
+	 or sysext-update */
+      if (streq(progname, "sysext-update") ||
+	  streq(&progname[2], "-sysext-update"))
+	return main_tukit_plugin(--argc, ++argv);
+    }
+
   if (argc == 1)
     usage(EXIT_FAILURE);
   else if (strcmp(argv[1], "create-json") == 0)

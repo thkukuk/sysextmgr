@@ -47,3 +47,6 @@ extern int main_update(int argc, char **argv);
 
 /* main-install.c */
 extern int main_install(int argc, char **argv);
+
+/* main-tukit-plugin.c */
+extern int main_tukit_plugin(int argc, char **argv);
