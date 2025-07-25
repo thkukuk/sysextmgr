@@ -13,6 +13,8 @@ int
 main_tukit_plugin(int argc, char **argv)
 {
   int r;
+  const char *action = argv[0];
+  const char *path = argv[1];
 
   if (argc == 0)
     {
@@ -20,16 +22,16 @@ main_tukit_plugin(int argc, char **argv)
       return EINVAL;
     }
 
-  if (!streq(argv[0], "finalize-pre"))
+  if (!streq(action, "finalize-pre"))
     return 0;
 
-  if (argc < 3)
+  if (argc != 3)
     {
-      fprintf(stderr, "sysextmgr tukit plugin called with wrong number of arguments. Expected >= 3, got %i\n", argc);
+      fprintf(stderr, "sysextmgr tukit plugin called with wrong number of arguments. Expected 3, got %i\n", argc);
       return EINVAL;
     }
 
-  r = varlink_check(NULL, argv[0]);
+  r = varlink_check(NULL, path);
   if (r < 0)
     {
       /* sysextmgrd not running, do nothing */
@@ -48,7 +50,7 @@ main_tukit_plugin(int argc, char **argv)
   if (r == -ENODATA)
     return 0;
 
-  r = varlink_update(NULL, argv[0]);
+  r = varlink_update(NULL, path);
   if (r < 0)
     return -r;
 
