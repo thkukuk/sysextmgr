@@ -62,6 +62,8 @@ conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
 extensionsdir = get_option('extensionsdir')
 conf.set_quoted('EXTENSIONS_DIR', extensionsdir)
 
+tukitplugindir = get_option('tukitplugindir')
+conf.set_quoted('TUKITPLUGIN_DIR', tukitplugindir)
 
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
@@ -69,7 +71,7 @@ libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 inc = include_directories(['include'])
 
 sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c',
-  'src/main-check.c', 'src/main-list.c', 'src/main-install.c', 
+  'src/main-check.c', 'src/main-list.c', 'src/main-install.c',
   'src/main-update.c', 'src/main-cleanup.c', 'src/image-deps.c',
   'src/main-tukit-plugin.c', 'src/varlink-client.c']
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
@@ -84,6 +86,12 @@ executable('sysextmgrcli',
            include_directories : inc,
            dependencies : [libeconf, libsystemd],
            install : true)
+
+if get_option('tukit-plugin')
+  install_symlink('50-sysext-update',
+                   pointing_to: '../../../bin/sysextmgrcli',
+                   install_dir: tukitplugindir)
+endif
 
 executable('sysextmgrd',
            sysextmgrd_c,

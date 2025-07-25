@@ -2,3 +2,8 @@ option('sysextstoredir', type : 'string', value : '/var/lib/sysext-store',
        description : 'directory for sysext images')
 option('extensionsdir', type : 'string', value : '/etc/extensions',
        description : 'Directory where systemd-sysext looks for images')
+option('tukit-plugin', type : 'boolean', value : true,
+       description : 'create tukit plugin symlink')
+option('tukitplugindir', type : 'string', value : '/usr/lib/tukit/plugins',
+       description : 'Directory of plugins for tukit')
+
