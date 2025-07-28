@@ -10,7 +10,13 @@
 #include "sysextmgr.h"
 #include "log_msg.h"
 
-struct config config;
+struct config config = {
+  .verbose = false,
+  .verify_signature = true,
+  .url = NULL,
+  .sysext_store_dir = SYSEXT_STORE_DIR,
+  .extensions_dir = EXTENSIONS_DIR
+};
 
 static econf_err
 open_config_file(econf_file **key_file)
@@ -94,21 +100,22 @@ load_config(const char *defgroup)
     {
       int r;
 
-      r = getBoolValueDef(key_file, defgroup, "verbose", &config.verbose, false);
+      r = getBoolValueDef(key_file, defgroup, "verbose", &config.verbose, config.verbose);
       if (r < 0)
 	return r;
-      r = getBoolValueDef(key_file, defgroup, "verify_signature", &config.verify_signature, true);
+      r = getBoolValueDef(key_file, defgroup, "verify_signature", &config.verify_signature, config.verify_signature);
       if (r < 0)
 	return r;
-      r = getStringValueDef(key_file, defgroup, "url", &config.url, NULL);
+      r = getStringValueDef(key_file, defgroup, "url", &config.url, config.url);
       if (r < 0)
 	return r;
-      r = getStringValueDef(key_file, defgroup, "sysext_store_dir", &config.sysext_store_dir, SYSEXT_STORE_DIR);
+      r = getStringValueDef(key_file, defgroup, "sysext_store_dir", &config.sysext_store_dir, config.sysext_store_dir);
       if (r < 0)
 	return r;
-      r = getStringValueDef(key_file, defgroup, "extensions_dir", &config.extensions_dir, EXTENSIONS_DIR);
+      r = getStringValueDef(key_file, defgroup, "extensions_dir", &config.extensions_dir, config.extensions_dir);
       if (r < 0)
 	return r;
     }
+
   return 0;
 }
