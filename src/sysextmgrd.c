@@ -478,8 +478,8 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
       return r;
     }
 
-  /* Only allow URL or verbose argument if called by root */
-  if (p.url || p.verbose != config.verbose)
+  /* Only allow URL, prefix or verbose argument if called by root */
+  if (p.url || p.prefix || p.verbose != config.verbose)
     {
       uid_t peer_uid;
       r = sd_varlink_get_peer_uid(link, &peer_uid);
@@ -490,7 +490,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
         }
       if (peer_uid != 0)
         {
-	  if (p.url)
+	  if (p.url || p.prefix)
 	    {
 	      log_msg(LOG_WARNING, "Check: peer UID %i denied with additional options", peer_uid);
 	      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
