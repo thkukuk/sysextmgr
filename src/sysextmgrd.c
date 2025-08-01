@@ -815,15 +815,11 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 	  r = sd_json_variant_append_arraybo(&array,
 					     SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
 					     SD_JSON_BUILD_PAIR_STRING("NewName", update->image_name));
-        }
-      else /* No update found */
-	r = sd_json_variant_append_arraybo(&array,
-					   SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
-					   SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
-      if(r < 0)
-	{
-	  log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
-	  /* XXX */
+	  if(r < 0)
+	    {
+	      log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
+	      /* XXX */
+	    }
 	}
     }
 
