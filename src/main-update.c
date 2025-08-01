@@ -121,8 +121,8 @@ varlink_update (const char *url, const char *prefix)
     }
 
   /* XXX Use table_print_with_pager */
-  if (!arg_quiet)
-    printf ("Old image -> New Image\n");
+  if (!arg_quiet && sd_json_variant_elements(p.contents_json) > 0)
+    printf ("Old image -> New image\n");
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -133,7 +133,7 @@ varlink_update (const char *url, const char *prefix)
         };
       static const sd_json_dispatch_field dispatch_entry_table[] = {
         { "OldName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, old_name), SD_JSON_MANDATORY },
-        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), 0 },
+        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), SD_JSON_NULLABLE },
         {}
       };
 
@@ -152,7 +152,7 @@ varlink_update (const char *url, const char *prefix)
         }
 
       if (!arg_quiet)
-	printf ("%s -> %s\n", e.old_name, e.new_name?e.new_name:"No compatible newer version found"); /* XXX add option to print only updates */
+	printf ("%s -> %s\n", e.old_name, strna(e.new_name));
     }
 
   return 0;
