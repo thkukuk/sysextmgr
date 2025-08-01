@@ -31,6 +31,8 @@ main_tukit_plugin(int argc, char **argv)
       return EINVAL;
     }
 
+  printf("Checking for sysext image updates...\n");
+
   r = varlink_check(NULL, path);
   if (r < 0)
     {
@@ -44,12 +46,19 @@ main_tukit_plugin(int argc, char **argv)
 
   /* Return ENOMEDIUM if current image is incompatible and there is no update */
   if (r == -ENOMEDIUM)
-    return ENOMEDIUM;
+    {
+      fprintf(stderr, "At least one installed sysext image is incompatible and no update exists.\n");
+      return ENOMEDIUM;
+    }
 
   /* No update available */
   if (r == -ENODATA)
-    return 0;
+    {
+      printf("No updates found\n");
+      return 0;
+    }
 
+  printf("Updating the sysext images, be patient...\n");
   r = varlink_update(NULL, path);
   if (r < 0)
     return -r;
