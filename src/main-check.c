@@ -145,9 +145,7 @@ varlink_check(const char *url, const char *prefix)
     }
 
   /* XXX Use table_print_with_pager */
-  if (!arg_quiet && sd_json_variant_elements(p.contents_update) > 0)
-    printf ("Old image -> New Image\n");
-
+  bool header_printed = false;
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_update); i++)
     {
       _cleanup_(image_data_free) struct image_data e =
@@ -157,7 +155,7 @@ varlink_check(const char *url, const char *prefix)
         };
       static const sd_json_dispatch_field dispatch_entry_table[] = {
         { "OldName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, old_name), SD_JSON_MANDATORY },
-        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), SD_JSON_NULLABLE},
+        { "NewName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(struct image_data, new_name), SD_JSON_NULLABLE },
         {}
       };
 
@@ -180,6 +178,12 @@ varlink_check(const char *url, const char *prefix)
 
       if (!arg_quiet)
 	{
+	  if ((e.new_name || arg_verbose) && !header_printed)
+	    {
+	      printf ("Old image -> New image\n");
+	      header_printed = true;
+	    }
+
 	  if (e.new_name)
 	    printf ("%s -> %s\n", e.old_name, e.new_name);
 	  else
