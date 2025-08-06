@@ -52,13 +52,16 @@ parse_image_deps(sd_json_variant *json, struct image_deps **res)
       return r;
     }
 
-  r = sd_json_dispatch(e->sysext, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, e);
-  if (r < 0)
+  if (e->sysext != NULL)
     {
-      fprintf(stderr, "Failed to parse JSON entries object: %s\n", strerror(-r));
-      return r;
+      r = sd_json_dispatch(e->sysext, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, e);
+      if (r < 0)
+	{
+	  fprintf(stderr, "Failed to parse JSON entries object: %s\n", strerror(-r));
+	  return r;
+	}
+      e->sysext = sd_json_variant_unref(e->sysext);
     }
-  e->sysext = sd_json_variant_unref(e->sysext);
 
   *res = TAKE_PTR(e);
 

@@ -23,7 +23,7 @@ usage(int retval)
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
 
   fputs("Usage: sysextmgrcli [command] [options]\n", output);
-  fputs("Commands: create-json, check, cleanup, dump-json, install, list, merge-json, update\n\n", output);
+  fputs("Commands: create-json, check, cleanup, dump-json, dump-manifest, install, list, merge-json, update\n\n", output);
 
   fputs("create-json - create json file from release file\n", output);
   fputs("Options for create-json:\n", output);
@@ -44,6 +44,11 @@ usage(int retval)
   fputs("dump-json - dump content of json file\n", output);
   fputs("Options for dump-json:\n", output);
   fputs("  <file 1> <file 2>...  Input files in json format\n", output);
+  fputs("\n", output);
+
+  fputs("dump-manifest - dump content of mkosi generated manifest file\n", output);
+  fputs("Options for dump-manifest:\n", output);
+  fputs("  <file 1> <file 2>...  mkosi manifest in json format\n", output);
   fputs("\n", output);
 
   fputs("install - Install newest compatible sysext image\n", output);
@@ -328,6 +333,47 @@ main_dump_json(int argc, char **argv)
   return EXIT_SUCCESS;
 }
 
+static int
+main_dump_manifest(int argc, char **argv)
+{
+  struct option const longopts[] = {
+    {NULL, 0, NULL, '\0'}
+  };
+  _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+  _cleanup_fclose_ FILE *of = NULL;
+  int c, r;
+
+  while ((c = getopt_long(argc, argv, "", longopts, NULL)) != -1)
+    {
+      switch (c)
+        {
+        default:
+          usage(EXIT_FAILURE);
+          break;
+        }
+    }
+
+  if (optind >= argc)
+    {
+      fprintf(stderr, "No input files specified!\n\n");
+      usage(EXIT_FAILURE);
+    }
+
+  for (int i = optind; i < argc; i++)
+    {
+      _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
+
+      r = load_manifest(AT_FDCWD, argv[i], &images);
+      if (r < 0)
+	return EXIT_FAILURE;
+
+      for (size_t j = 0; images && images[j] != NULL; j++)
+	dump_image_deps(images[j]);
+    }
+
+  return EXIT_SUCCESS;
+}
+
 int
 main(int argc, char **argv)
 {
@@ -359,6 +405,8 @@ main(int argc, char **argv)
     return main_cleanup(--argc, ++argv);
   else if (strcmp(argv[1], "dump-json") == 0)
     return main_dump_json(--argc, ++argv);
+  else if (strcmp(argv[1], "dump-manifest") == 0)
+    return main_dump_manifest(--argc, ++argv);
   else if (strcmp(argv[1], "install") == 0)
     return main_install(--argc, ++argv);
   else if (strcmp(argv[1], "list") == 0)

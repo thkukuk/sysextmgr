@@ -283,16 +283,77 @@ image_json_from_url(const char *url, const char *image_name,
 	}
       else
 	{
-	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %i", jsonfn, url, r);
-	  /* XXX
-	     if (WIFEXITED(status)) {
-	     printf("exited, status=%d\n", WEXITSTATUS(status));
-	     } else if (WIFSIGNALED(status)) {
-	     printf("killed by signal %d\n", WTERMSIG(status));
-	     } else if (WIFSTOPPED(status)) {
-	     printf("stopped by signal %d\n", WSTOPSIG(status));
-	     }
-	  */
+	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %s", jsonfn, url, wstatus2str(r));
+	  if (WIFEXITED(r))
+	    return -ENOENT;
+
+	  return -EIO;
+	}
+    }
+
+  _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
+  r = load_image_json(fd, tmpfn, &images);
+  if (r < 0)
+    return r;
+
+  if (images == NULL || images[0] == NULL)
+    {
+      log_msg(LOG_NOTICE, "No entry with dependencies found (%s)!", jsonfn);
+      return -ENOENT;
+    }
+
+  if (images[1] == NULL)
+      *res = TAKE_PTR(images[0]);
+  else
+    {
+      /* XXX go through the list and search the corret image */
+      /* XXX we cannot use TAKE_PTR else the rest of the list will not be free'd */
+      log_msg(LOG_ERR, "More than one entry found, not implemented yet!");
+      exit(EXIT_FAILURE);
+    }
+
+  return 0;
+}
+
+static int
+image_manifest_from_url(const char *url, const char *image_name,
+			struct image_deps **res, bool verify_signature)
+{
+  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-manifest.XXXXXX";
+  _cleanup_close_ int fd = -EBADF;
+  _cleanup_free_ char *jsonfn = NULL;
+  int r;
+
+  assert(url);
+  assert(res);
+
+  fd = mkostemp_safe(tmpfn);
+
+  jsonfn = malloc(strlen(image_name) + strlen(".manifest.gz") + 1);
+  char *p = stpcpy(jsonfn, image_name);
+  p = endswith(jsonfn, ".raw");
+  if (!p)
+    {
+      log_msg(LOG_ERR, "The image '%s' has no supported suffix", jsonfn);
+      return -EINVAL;
+    }
+  strcpy(p, ".manifest.gz");
+
+  r = download(url, jsonfn, tmpfn, verify_signature);
+  if (r != 0)
+    {
+      if (r < 0)
+	{
+	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %s",
+		  jsonfn, url, strerror(-r));
+	  return r;
+	}
+      else
+	{
+	  log_msg(LOG_ERR, "Failed to download '%s' from '%s': %s", jsonfn, url, wstatus2str(r));
+	  if (WIFEXITED(r))
+	    return -ENOENT;
+
 	  return -EIO;
 	}
     }
@@ -345,16 +406,10 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 	}
       else
 	{
-	  log_msg(LOG_ERR, "Failed to download 'SHA256SUMS' from '%s': %i", url, r);
-	  /* XXX
-	     if (WIFEXITED(status)) {
-	     printf("exited, status=%d\n", WEXITSTATUS(status));
-	     } else if (WIFSIGNALED(status)) {
-	     printf("killed by signal %d\n", WTERMSIG(status));
-	     } else if (WIFSTOPPED(status)) {
-	     printf("stopped by signal %d\n", WSTOPSIG(status));
-	     }
-	  */
+	  log_msg(LOG_ERR, "Failed to download 'SHA256SUMS' from '%s': %s", url, wstatus2str(r));
+	  if (WIFEXITED(r))
+	    return -ENOENT;
+
 	  return -EIO;
 	}
     }
@@ -464,8 +519,12 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 
 	  r = image_json_from_url(url, list[i], &(images[pos]->deps), verify_signature);
 	  if (r < 0)
-	    return r;
-
+	    {
+	      if (r == -ENOENT)
+		r = image_manifest_from_url(url, list[i], &(images[pos]->deps), verify_signature);
+	      if (r < 0)
+		return r;
+	    }
 	  if (images[pos]->deps && osrelease)
 	    images[pos]->compatible =
 	      extension_release_validate(images[pos]->image_name,

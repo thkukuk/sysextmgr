@@ -67,24 +67,27 @@ conf.set_quoted('TUKITPLUGIN_DIR', tukitplugindir)
 
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
+libz = dependency('zlib', required : true)
+#libzio = dependency('libzio', required : true)
+libzio = declare_dependency(dependencies : cc.find_library('zio'))
 
 inc = include_directories(['include'])
 
 sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c',
   'src/main-check.c', 'src/main-list.c', 'src/main-install.c',
   'src/main-update.c', 'src/main-cleanup.c', 'src/image-deps.c',
-  'src/main-tukit-plugin.c', 'src/varlink-client.c']
+  'src/main-tukit-plugin.c', 'src/mkosi-manifest.c', 'src/varlink-client.c']
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
   'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',
-  'src/config.c', 'src/json-common.c', 'src/newversion.c',
+  'src/config.c', 'src/json-common.c', 'src/newversion.c', 
   'lib/extension-util.c', 'lib/string-util-fundamental.c', 'lib/tmpfile-util.c',
   'lib/strv.c', 'lib/architecture.c']
 
 executable('sysextmgrcli',
            sysextmgrcli_c,
            include_directories : inc,
-           dependencies : [libeconf, libsystemd],
+           dependencies : [libeconf, libsystemd, libzio, libz],
            install : true)
 
 if get_option('tukit-plugin')

@@ -14,6 +14,24 @@
 
 #define SYSTEMD_PULL_PATH "/usr/lib/systemd/systemd-pull"
 
+const char *
+wstatus2str(int wstatus)
+{
+  static char buf[100];
+
+  if (WIFEXITED(wstatus))
+    snprintf(buf, sizeof(buf), "exit status %d", WEXITSTATUS(wstatus));
+  else if (WIFSIGNALED(wstatus))
+    snprintf(buf, sizeof(buf), "killed by signal %d", WTERMSIG(wstatus));
+  else if (WIFSTOPPED(wstatus))
+    snprintf(buf, sizeof(buf), "stopped by signal %d", WSTOPSIG(wstatus));
+  else
+    snprintf(buf, sizeof(buf), "unknown wstatus %d", wstatus);
+
+  buf[sizeof(buf)-1] = '\0';
+
+  return buf;
+}
 
 int
 join_path(const char *url, const char *suffix, char **ret)
@@ -40,6 +58,11 @@ join_path(const char *url, const char *suffix, char **ret)
 
 
 /* XXX see sysupdate-resource.c/download_manifest */
+/* return value:
+   < 0 : -errno (error)
+   = 0 : success
+   > 0 : status of waitpid (error)
+*/
 int
 download(const char *url, const char *fn, const char *destfn, bool verify_signature)
 {

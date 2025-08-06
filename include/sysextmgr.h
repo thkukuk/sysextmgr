@@ -27,6 +27,7 @@ extern int load_config(const char *defgroup);
 
 extern int parse_image_deps(sd_json_variant *json, struct image_deps **e);
 extern int load_image_json(int fd, const char *path, struct image_deps ***images);
+extern int load_manifest(int fd, const char *path, struct image_deps ***images);
 
 extern int get_latest_version(struct image_entry *curr, struct image_entry **new, const char *url, bool verify_signature, const struct osrelease *osrelease, bool verbose);
 /* main.c */
