@@ -105,14 +105,14 @@ parse_manifest(sd_json_variant *json, struct image_deps **res)
 
   if (!sd_json_variant_is_array(p.extensions) || sd_json_variant_elements(p.extensions) != 1)
     {
-      fprintf(stderr, "Failed to parse JSON extensions: %s\n", strerror(-r));
+      fprintf(stderr, "JSON extensions is no array or has not exactly one element.\n");
       return -EINVAL;
     }
 
   sd_json_variant *e = sd_json_variant_by_index(p.extensions, 0);
   if (!sd_json_variant_is_array(e) || sd_json_variant_elements(e) != 2)
     {
-      fprintf(stderr, "Failed to parse JSON extension: %s\n", strerror(-r));
+      fprintf(stderr, "JSON sysext data is no array or has wrong number of elements.\n");
       return -EINVAL;
     }
 

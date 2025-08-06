@@ -359,7 +359,7 @@ image_manifest_from_url(const char *url, const char *image_name,
     }
 
   _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
-  r = load_image_json(fd, tmpfn, &images);
+  r = load_manifest(fd, tmpfn, &images);
   if (r < 0)
     return r;
 
