@@ -27,7 +27,7 @@ struct manifest {
   char *config_name;
   char *config_architecture;
   char *config_version;
-  sd_json_variant *extensions;
+  sd_json_variant *extension;
 };
 
 static void
@@ -37,7 +37,7 @@ manifest_free (struct manifest *var)
   var->config_name = mfree(var->config_name);
   var->config_architecture = mfree(var->config_architecture);
   var->config_version = mfree(var->config_version);
-  var->extensions = sd_json_variant_unref(var->extensions);
+  var->extension = sd_json_variant_unref(var->extension);
 }
 
 static int
@@ -49,7 +49,7 @@ parse_manifest_config(sd_json_variant *json, char **image_name)
     .config_name = NULL,
     .config_architecture = NULL,
     .config_version = NULL,
-    .extensions = NULL,
+    .extension = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "name",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct manifest, config_name),         0 },
@@ -84,12 +84,12 @@ parse_manifest(sd_json_variant *json, struct image_deps **res)
     .config_name = NULL,
     .config_architecture = NULL,
     .config_version = NULL,
-    .extensions = NULL,
+    .extension = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "manifest_version", SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_int,     offsetof(struct manifest, manifest_version), 0 },
     { "config",           SD_JSON_VARIANT_OBJECT,  sd_json_dispatch_variant, offsetof(struct manifest, config), 0 },
-    { "extensions",       SD_JSON_VARIANT_ARRAY,   sd_json_dispatch_variant, offsetof(struct manifest, extensions), SD_JSON_NULLABLE },
+    { "extension",        SD_JSON_VARIANT_OBJECT,  sd_json_dispatch_variant, offsetof(struct manifest, extension), SD_JSON_NULLABLE },
     {}
   };
   int r;
@@ -103,24 +103,13 @@ parse_manifest(sd_json_variant *json, struct image_deps **res)
       return r;
     }
 
-  if (!sd_json_variant_is_array(p.extensions) || sd_json_variant_elements(p.extensions) != 1)
+  if (p.extension == NULL || sd_json_variant_is_null(p.extension))
     {
-      fprintf(stderr, "JSON extensions is no array or has not exactly one element.\n");
+      fprintf(stderr, "No JSON extension object available.\n");
       return -EINVAL;
     }
 
-  sd_json_variant *e = sd_json_variant_by_index(p.extensions, 0);
-  if (!sd_json_variant_is_array(e) || sd_json_variant_elements(e) != 2)
-    {
-      fprintf(stderr, "JSON sysext data is no array or has wrong number of elements.\n");
-      return -EINVAL;
-    }
-
-  /* Format is: "sysext", {...} */
-
-  e = sd_json_variant_by_index(e, 1);
-
-  r = parse_image_deps(e, res);
+  r = parse_image_deps(p.extension, res);
   if (r < 0)
     return r;
 
