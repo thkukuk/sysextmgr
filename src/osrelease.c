@@ -6,6 +6,7 @@
 #include <libeconf.h>
 
 #include "basics.h"
+#include "download.h"
 #include "osrelease.h"
 
 void
@@ -33,8 +34,10 @@ free_os_releasep(struct osrelease **p)
 int
 load_os_release(const char *prefix, struct osrelease **res)
 {
+  _cleanup_free_ char *osrelease = NULL;
   _cleanup_(econf_freeFilep) econf_file *key_file = NULL;
   econf_err error;
+  int r;
 
   assert(res);
 
@@ -42,12 +45,36 @@ load_os_release(const char *prefix, struct osrelease **res)
   if (res == NULL)
     return -ENOMEM;
 
-  /* XXX add prefix to look in snapshots */
-  const char *osrelease = NULL;
-  if (access("/etc/os-release", F_OK) == 0)
-    osrelease = "/etc/os-release";
+
+  if (!isempty(prefix))
+    {
+      r = join_path(prefix, "/etc/os-release", &osrelease);
+      if (r < 0)
+	return r;
+    }
   else
-    osrelease = "/usr/lib/os-release";
+    {
+      osrelease = strdup("/etc/os-release");
+      if (!osrelease)
+	return -ENOMEM;
+    }
+
+  if (access(osrelease, F_OK) != 0)
+    {
+      osrelease = mfree(osrelease);
+      if (!isempty(prefix))
+	{
+	  r = join_path(prefix, "/usr/lib/os-release", &osrelease);
+	  if (r < 0)
+	    return r;
+	}
+      else
+	{
+	  osrelease = strdup("/usr/lib/os-release");
+	  if (!osrelease)
+	    return -ENOMEM;
+	}
+  }
 
   if ((error = econf_readFile(&key_file, osrelease, "=", "#")))
     {
