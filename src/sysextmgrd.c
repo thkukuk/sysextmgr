@@ -418,24 +418,27 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   for (size_t i = 0; images[i] != NULL; i++)
     {
-      r = sd_json_variant_append_arraybo(&array,
-					 SD_JSON_BUILD_PAIR_STRING("NAME", images[i]->name),
-					 SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images[i]->image_name),
-					 SD_JSON_BUILD_PAIR_STRING("SYSEXT_VERSION_ID", images[i]->deps->sysext_version_id),
-					 SD_JSON_BUILD_PAIR_STRING("SYSEXT_SCOPE", images[i]->deps->sysext_scope),
-					 SD_JSON_BUILD_PAIR_STRING("ID", images[i]->deps->id),
-					 SD_JSON_BUILD_PAIR_STRING("SYSEXT_LEVEL", images[i]->deps->sysext_level),
-					 SD_JSON_BUILD_PAIR_STRING("VERSION_ID", images[i]->deps->version_id),
-					 SD_JSON_BUILD_PAIR_STRING("ARCHITECTURE", images[i]->deps->architecture),
-					 SD_JSON_BUILD_PAIR_BOOLEAN("LOCAL", images[i]->local),
-					 SD_JSON_BUILD_PAIR_BOOLEAN("REMOTE", images[i]->remote),
-					 SD_JSON_BUILD_PAIR_BOOLEAN("INSTALLED", images[i]->installed),
-					 SD_JSON_BUILD_PAIR_BOOLEAN("COMPATIBLE", images[i]->compatible),
-					 SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
-      if(r < 0)
+      if (images[i]->deps)
 	{
-	  log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
-	  /* XXX */
+	  r = sd_json_variant_append_arraybo(&array,
+					     SD_JSON_BUILD_PAIR_STRING("NAME", images[i]->name),
+					     SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images[i]->image_name),
+					     SD_JSON_BUILD_PAIR_STRING("SYSEXT_VERSION_ID", images[i]->deps->sysext_version_id),
+					     SD_JSON_BUILD_PAIR_STRING("SYSEXT_SCOPE", images[i]->deps->sysext_scope),
+					     SD_JSON_BUILD_PAIR_STRING("ID", images[i]->deps->id),
+					     SD_JSON_BUILD_PAIR_STRING("SYSEXT_LEVEL", images[i]->deps->sysext_level),
+					     SD_JSON_BUILD_PAIR_STRING("VERSION_ID", images[i]->deps->version_id),
+					     SD_JSON_BUILD_PAIR_STRING("ARCHITECTURE", images[i]->deps->architecture),
+					     SD_JSON_BUILD_PAIR_BOOLEAN("LOCAL", images[i]->local),
+					     SD_JSON_BUILD_PAIR_BOOLEAN("REMOTE", images[i]->remote),
+					     SD_JSON_BUILD_PAIR_BOOLEAN("INSTALLED", images[i]->installed),
+					     SD_JSON_BUILD_PAIR_BOOLEAN("COMPATIBLE", images[i]->compatible),
+					     SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
+	  if(r < 0)
+	    {
+	      log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
+	      /* XXX */
+	    }
 	}
     }
 

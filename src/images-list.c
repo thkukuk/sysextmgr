@@ -518,13 +518,11 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	  images[pos]->remote = true;
 
 	  r = image_json_from_url(url, list[i], &(images[pos]->deps), verify_signature);
+	  if (r == -ENOENT)
+	    r = image_manifest_from_url(url, list[i], &(images[pos]->deps), verify_signature);
 	  if (r < 0)
-	    {
-	      if (r == -ENOENT)
-		r = image_manifest_from_url(url, list[i], &(images[pos]->deps), verify_signature);
-	      if (r < 0)
-		return r;
-	    }
+	    log_msg(LOG_INFO, "Meta data for image '%s' not Ok", list[i]);
+
 	  if (images[pos]->deps && osrelease)
 	    images[pos]->compatible =
 	      extension_release_validate(images[pos]->image_name,
