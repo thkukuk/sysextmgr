@@ -115,7 +115,8 @@ varlink_list_images (const char *url)
       return -EIO;
     }
 
-  if (p.contents_json == NULL)
+  if (p.contents_json == NULL ||
+      sd_json_variant_is_null(p.contents_json))
     {
       printf("No images found\n");
       return 0;
