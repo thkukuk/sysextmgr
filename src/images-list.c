@@ -517,9 +517,9 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	    return -ENOMEM;
 	  images[pos]->remote = true;
 
-	  r = image_json_from_url(url, list[i], &(images[pos]->deps), verify_signature);
+	  r = image_manifest_from_url(url, list[i], &(images[pos]->deps), verify_signature);
 	  if (r == -ENOENT)
-	    r = image_manifest_from_url(url, list[i], &(images[pos]->deps), verify_signature);
+	    r = image_json_from_url(url, list[i], &(images[pos]->deps), verify_signature);
 	  if (r < 0)
 	    log_msg(LOG_INFO, "Meta data for image '%s' not Ok", list[i]);
 
