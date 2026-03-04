@@ -55,6 +55,7 @@ libexecdir = join_paths(prefixdir, get_option('libexecdir'))
 datadir = join_paths(prefixdir, get_option('datadir'))
 conf.set_quoted('DATADIR', datadir)
 systemunitdir = prefixdir / 'lib/systemd/system'
+tmpfilesdir = prefixdir / 'lib/tmpfiles.d'
 
 sysextstoredir = get_option('sysextstoredir')
 conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
@@ -109,6 +110,7 @@ subdir('tests')
 
 # systemd units
 subdir('units')
+subdir('tmpfiles.d')
 
 # Manual pages
 #subdir('man')
