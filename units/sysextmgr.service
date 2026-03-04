@@ -20,7 +20,5 @@ ProtectKernelModules=yes
 ProtectKernelTunables=yes
 ProtectSystem=strict
 ReadWritePaths=/var/lib/sysext-store /etc/extensions
-RestrictRealtime=true
-RestrictNamespaces=yes
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
