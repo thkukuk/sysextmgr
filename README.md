@@ -36,7 +36,7 @@ Only the image name without version and architecture information are specified:
 * Download the json files for this entries.
 * Check if they are compatible with the OS.
 * Download the image.
-* Create symlink to `/etc/extionsions` in the running snapshot.
+* Create symlink to `/etc/extensions` in the running snapshot.
 
 ### Update image
 
@@ -66,16 +66,23 @@ Only the image name without version and architecture information are specified:
 
 The dependencies of sysext images are stored in a file inside of the image. To get the dependencies of an image you need to download and loopback mount it, which can end in a huge amount of data to download.
 
-The solution is to provide a `<image>.json` file with the following structure:´, which contains all data:
+The solution is to provide a `<image>.manifest` file as created by [mkosi](https://manpages.opensuse.org/mkosi) with the following structure:´, which contains all data:
 
 ```json
 {
-  "image_name": "strace-29.1.x86-64.raw",
-  "sysext": {
+  "manifest_version": 1,
+  "config": {
+    [...]
+  },
+  "packages": [
+    [...]
+  ],
+  "extension": {
     "ID": "opensuse-microos",
-    "SYSEXT_LEVEL": "glibc-2.41",
-    "VERSION_ID": "20250329",
-    "SYSEXT_VERSION_ID": "29.1",
+    "SYSEXT_LEVEL": "glibc-2.42",
+    "VERSION_ID": "20260304",
+    "SYSEXT_ID": "debug",
+    "SYSEXT_VERSION_ID": "2.43",
     "SYSEXT_SCOPE": "system",
     "ARCHITECTURE": "x86-64"
   }
@@ -96,11 +103,19 @@ The search order for configuration files:
 /usr/share/sysextmgr/sysextmgr.conf.d/*.conf
 ```
 
-Supported groups:
+### Supported groups:
 * *sysextmgrd* - the key/value pairs of this group are read by `sysextmgrd`.
 * *default* - this key/value pairs of this group are read by `sysextmgrd` and `sysextmgrcli` if they are not specific in a tool specific section. But they are not necessarly supported by both.
 
-Example configuration file:
+### Supported keys:
+
+* *verbose* - Boolean, Run `sysextmgrd` in verbose mode
+* *verify_signature* - Boolean, verify signatures of downloaded images
+* *url* - URL from where to get sysext images
+* *sysext_store_dir* - Local directory where to store sysext images, default: `/var/lib/sysext-store`
+* *extensions_dir* - Directory with symlinks pointing to sysext images which systemd-sysext will enable at startup, default: `/etc/extensions`
+
+### Example configuration file:
 ```
 [default]
 url=https://download.opensuse.org/repositories/home:/kukuk:/sysext/mkosi/
