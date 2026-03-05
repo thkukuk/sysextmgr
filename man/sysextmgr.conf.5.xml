@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="sysextmgr.conf">
+  <refmeta>
+    <refentrytitle>sysextmgr.conf</refentrytitle>
+    <manvolnum>5</manvolnum>
+    <refmiscinfo class="source">sysextmgr %version%</refmiscinfo>
+    <refmiscinfo class="manual">File Formats and Conventions</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysextmgr.conf</refname>
+    <refname>sysextmgr.conf.d</refname>
+    <refpurpose>configuration file for sysextmgr tools</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      The <command>sysextmgr</command> tools read an INI style configuration file following the Configuration Files Specification of the The Linux Userspace API (UAPI) Group.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Configuration Directories and Precedence</title>
+    <para>The search order for configuration files is as follows:</para>
+    <itemizedlist>
+      <listitem><para><filename>/etc/sysextmgr/sysextmgr.conf</filename></para></listitem>
+      <listitem><para><filename>/run/sysextmgr/sysextmgr.conf</filename></para></listitem>
+      <listitem><para><filename>/usr/share/sysextmgr/sysextmgr.conf</filename></para></listitem>
+      <listitem><para><filename>/etc/sysextmgr/sysextmgr.conf.d/*.conf</filename></para></listitem>
+      <listitem><para><filename>/run/sysextmgr/sysextmgr.conf.d/*.conf</filename></para></listitem>
+      <listitem><para><filename>/usr/share/sysextmgr/sysextmgr.conf.d/*.conf</filename></para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Supported Groups</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>[sysextmgrd]</option></term>
+        <listitem>
+          <para>The key/value pairs of this group are read by the <command>sysextmgrd</command> daemon.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>[default]</option></term>
+        <listitem>
+          <para>
+            The key/value pairs of this group are used by <command>sysextmgrd</command> and <command>sysextmgrcli</command> if they are not specified in a tool-specific section. Note that these keys are not necessarily supported by both tools.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Supported Keys</title>
+    <variablelist>
+      <varlistentry>
+        <term><varname>verbose=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. If true, runs <command>sysextmgrd</command> in verbose mode.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>verify_signature=</varname></term>
+        <listitem>
+          <para>Takes a boolean value. If true, verifies the signatures of downloaded images.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>url=</varname></term>
+        <listitem>
+          <para>Specifies the URL from where to retrieve sysext images.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>sysext_store_dir=</varname></term>
+        <listitem>
+          <para>
+            Specifies the local directory where to store sysext images.
+            Defaults to <filename>/var/lib/sysext-store</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>extensions_dir=</varname></term>
+        <listitem>
+          <para>
+            Specifies the directory with symlinks pointing to sysext images which
+            <command>systemd-sysext</command> will enable at startup.
+            Defaults to <filename>/etc/extensions</filename>.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>A basic sysextmgr.conf file</title>
+      <programlisting><![CDATA[[default]
+url=https://download.opensuse.org/tumbleweed/appliances/
+
+[sysextmgrd]
+verbose=true]]></programlisting>
+    </example>
+  </refsect1>
+
+</refentry>

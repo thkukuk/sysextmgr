@@ -113,7 +113,7 @@ subdir('units')
 subdir('tmpfiles.d')
 
 # Manual pages
-#subdir('man')
+subdir('man')
 
 config_h = configure_file(
   output : 'config.h',

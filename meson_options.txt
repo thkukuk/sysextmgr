@@ -1,3 +1,5 @@
+option('man', type : 'feature', value : 'auto',
+       description : 'build and install man pages')
 option('sysextstoredir', type : 'string', value : '/var/lib/sysext-store',
        description : 'directory for sysext images')
 option('extensionsdir', type : 'string', value : '/etc/extensions',
