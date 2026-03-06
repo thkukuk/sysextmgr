@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="sysextmgrd">
+  <refmeta>
+    <refentrytitle>sysextmgrd</refentrytitle>
+    <manvolnum>8</manvolnum>
+    <refmiscinfo class="source">sysextmgr %version%</refmiscinfo>
+    <refmiscinfo class="manual">System Administration</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysextmgrd</refname>
+    <refpurpose>daemon to manage systemd-sysext images on openSUSE MicroOS</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>sysextmgrd</command>
+      <arg rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>sysextmgrd</command> is the backend service that manages
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      extension images. It is designed to run on openSUSE MicroOS and
+      execute privileged operations securely on behalf of the unprivileged
+      <citerefentry><refentrytitle>sysextmgrcli</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      client.
+    </para>
+    <para>
+      The daemon communicates with the client via varlink. It handles
+      methods such as <literal>Check</literal>, <literal>Cleanup</literal>,
+      <literal>ListImages</literal> and <literal>Update</literal>.
+    </para>
+    <para>
+      Normally, <command>sysextmgrd</command> is activated dynamically
+      via a systemd socket when a client attempts to connect. However,
+      it can also be started standalone as a standard daemon.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>-s</option>, <option>--socket</option></term>
+        <listitem>
+          <para>Run in socket activation mode. The daemon expects systemd to pass the listening socket.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-d</option>, <option>--debug</option></term>
+        <listitem>
+          <para>Enable debug mode for extended troubleshooting output.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option>, <option>--verbose</option></term>
+        <listitem>
+          <para>Enable verbose logging during execution.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-?</option>, <option>--help</option></term>
+        <listitem>
+          <para>Give this help list and exit.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>--version</option></term>
+        <listitem>
+          <para>Print program version and exit.</para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>sysextmgrcli</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysextmgr.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

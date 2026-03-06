@@ -16,6 +16,18 @@ mandir5 = get_option('mandir') / 'man5'
 mandir8 = get_option('mandir') / 'man8'
 
 if xsltproc_exe.found()
+custom_target('sysextmgrcli.1',
+              input : 'sysextmgrcli.1.xml',
+              output : 'sysextmgrcli.1',
+              command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
+              install : want_man,
+              install_dir : mandir1)
+custom_target('sysextmgrd.8',
+              input : 'sysextmgrd.8.xml',
+              output : 'sysextmgrd.8',
+              command : xslt_cmd + [custom_man_xsl, '@INPUT@'],
+              install : want_man,
+              install_dir : mandir8)
 custom_target('sysextmgr.conf.5',
               input : 'sysextmgr.conf.5.xml',
               output : 'sysextmgr.conf.5',

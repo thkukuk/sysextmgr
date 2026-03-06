@@ -112,4 +112,13 @@ verbose=true]]></programlisting>
     </example>
   </refsect1>
 
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>sysextmgrcli</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysextmgrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
 </refentry>

@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<refentry xmlns="http://docbook.org/ns/docbook" version="5.0" xml:id="sysextmgrcli">
+  <refmeta>
+    <refentrytitle>sysextmgrcli</refentrytitle>
+    <manvolnum>1</manvolnum>
+    <refmiscinfo class="source">sysextmgr %version%</refmiscinfo>
+    <refmiscinfo class="manual">User Commands</refmiscinfo>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sysextmgrcli</refname>
+    <refpurpose>command line utility to manage systemd-sysext images</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>sysextmgrcli</command>
+      <arg choice="req"><replaceable>COMMAND</replaceable></arg>
+      <arg rep="repeat"><replaceable>OPTIONS</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>
+      <command>sysextmgrcli</command> is the command-line client for managing systemd-sysext
+      images on openSUSE MicroOS. It delegates most tasks to the
+      <citerefentry><refentrytitle>sysextmgrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      daemon via varlink. This architecture allows unprivileged users to
+      list existing system extension images without needing root permissions.
+    </para>
+    <para>
+      Image downloads and verifications are handled automatically using <command>systemd-pull</command>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+    <variablelist>
+      <varlistentry>
+        <term><command>create-json</command></term>
+        <listitem>
+          <para>Create a JSON file from a release file.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-n</option>, <option>--name</option></term>
+              <listitem><para>Name of the image.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-i</option>, <option>--input</option></term>
+              <listitem><para>Release file in KEY=VALUE format.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-o</option>, <option>--output</option></term>
+              <listitem><para>Output file in JSON format.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>check</command></term>
+        <listitem>
+          <para>Check if updates are available and all installed images are compatible with the installed OS.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-p</option>, <option>--prefix</option></term>
+              <listitem><para>Prefix to a different root directory.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Don't print the list of images, report status via return values.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cleanup</command></term>
+        <listitem>
+          <para>Check all snapshots for referenced images and remove no longer used ones.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Return 0 if images were removed, otherwise ENODATA.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>dump-json</command> <replaceable>FILE...</replaceable></term>
+        <listitem>
+          <para>Dump the content of the specified JSON files.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>dump-manifest</command> <replaceable>FILE...</replaceable></term>
+        <listitem>
+          <para>Dump the content of the specified manifest files.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>install</command> <replaceable>NAME...</replaceable></term>
+        <listitem>
+          <para>Install the newest compatible sysext image.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL containing the sysext images.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list</command></term>
+        <listitem>
+          <para>List all images and report whether they are compatible.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL with sysext images.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-v</option>, <option>--verbose</option></term>
+              <listitem><para>Enable verbose output.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>merge-json</command> <replaceable>FILE...</replaceable></term>
+        <listitem>
+          <para>Merge several JSON files into one JSON array.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-o</option>, <option>--output FILE</option></term>
+              <listitem><para>Output file in JSON format.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>update</command></term>
+        <listitem>
+          <para>Check if newer images are available and update them.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-p</option>, <option>--prefix</option></term>
+              <listitem><para>Prefix to a different root directory.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Return 0 if updates exist, else ENODATA.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL with sysext images.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Generic Options</title>
+    <variablelist>
+      <varlistentry>
+        <term><option>-h</option>, <option>--help</option></term>
+        <listitem><para>Display a help message and exit.</para></listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><option>-v</option>, <option>--version</option></term>
+        <listitem><para>Print the version number and exit.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Architecture and Directory Structure</title>
+    <para>
+      The architecture focuses on the effective use of Btrfs snapshots:
+    </para>
+    <variablelist>
+      <varlistentry>
+        <term><filename>/var/lib/sysext-store</filename></term>
+        <listitem>
+          <para>
+            Stores the actual sysext images. Being located in <filename>/var</filename>,
+            these images are shared across all snapshots, saving disk space.
+          </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><filename>/etc/extensions</filename></term>
+        <listitem>
+          <para>
+            Contains symlinks pointing to the images in the store. Because it resides in
+            <filename>/etc</filename>, every snapshot only sees the extensions relevant
+            to it. Performing a system rollback gracefully rolls back the active sysext images as well.
+          </para>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para><emphasis role="bold">Importing Images:</emphasis></para>
+    <para>
+      When a full image name is provided, the specific image is downloaded and symlinked immediately.
+      If only a base name is provided, the tool downloads the SHA256SUM file, verifies the OS compatibility
+      via the JSON manifest, downloads the image, and creates the symlink in the running snapshot.
+    </para>
+    <para><emphasis role="bold">Updating Images:</emphasis></para>
+    <para>
+      During an update, local files in <filename>/var/lib/sysext-store</filename> are checked against
+      remote manifests. If a new version compatible with the new snapshot's OS version is found, it is
+      downloaded and symlinked <emphasis>inside the new snapshot</emphasis>.
+    </para>
+    <para><emphasis role="bold">Enabling/Disabling:</emphasis></para>
+    <para>
+      <command>sysextmgrcli</command> does not directly activate images. Activation is managed by
+      <command>systemd-sysext</command>.
+      <itemizedlist>
+        <listitem><para>Manual merge: <command>systemd-sysext merge</command></para></listitem>
+        <listitem><para>Manual unmerge: <command>systemd-sysext unmerge</command></para></listitem>
+        <listitem><para>At boot: <command>systemctl enable systemd-sysext.service</command></para></listitem>
+      </itemizedlist>
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>Dependencies and Manifests</title>
+    <para>
+      To prevent large files from being downloaded just to resolve dependencies, images should be
+      accompanied by a lightweight <filename>&lt;image&gt;.manifest</filename> file (such as those
+      generated by mkosi). This contains the necessary OS configuration and constraints.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>sysextmgr.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>sysextmgrd</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
