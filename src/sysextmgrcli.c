@@ -36,10 +36,12 @@ usage(int retval)
   fputs("Options for check:\n", output);
   fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Don't print list of images but use return values\n", output);
+  fputs("\n", output);
 
   fputs("cleanup - Remove images no longer referenced\n", output);
   fputs("Options for check:\n", output);
   fputs("  -q, --quiet           Return 0 if images got removed, else ENODATA\n", output);
+  fputs("\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
   fputs("Options for dump-json:\n", output);
