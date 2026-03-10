@@ -89,10 +89,7 @@ varlink_cleanup(void)
     }
 
   if (p.contents_json == NULL || sd_json_variant_is_null(p.contents_json))
-    {
-      printf ("No sysext images removed.\n");
-      return -ENODATA;
-    }
+    return -ENODATA;
 
   if (!sd_json_variant_is_array(p.contents_json))
     {
@@ -166,7 +163,7 @@ main_cleanup(int argc, char **argv)
     }
 
   r = varlink_cleanup();
-  if (r < 0)
+  if (r < 0 && r != -ENODATA)
     {
       if (VARLINK_IS_NOT_RUNNING(r))
         fprintf(stderr, "sysextmgrd not running!\n");
@@ -174,8 +171,13 @@ main_cleanup(int argc, char **argv)
     }
 
   /* Return ENODATA if there was nothing to remove and we should not print anything */
-  if (r == ENODATA && arg_quiet)
-    return ENODATA;
+  if (r == -ENODATA)
+    {
+      if (arg_quiet)
+	return ENODATA;
+      else
+	printf ("No sysext images removed.\n");
+    }
 
   return EXIT_SUCCESS;
 }
