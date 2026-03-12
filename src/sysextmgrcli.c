@@ -39,7 +39,7 @@ usage(int retval)
   fputs("\n", output);
 
   fputs("cleanup - Remove images no longer referenced\n", output);
-  fputs("Options for check:\n", output);
+  fputs("Options for cleanup:\n", output);
   fputs("  -q, --quiet           Return 0 if images got removed, else ENODATA\n", output);
   fputs("\n", output);
 
