@@ -420,6 +420,11 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
     {
       if (images[i]->deps)
 	{
+	  log_msg(LOG_INFO, "--------");
+ 	  log_msg(LOG_INFO, "name: %s", images[i]->name);
+ 	  log_msg(LOG_INFO, "version: %s", images[i]->deps->sysext_version_id);
+ 	  log_msg(LOG_INFO, "arch: %s", images[i]->deps->architecture);
+	  log_msg(LOG_INFO, "--------");
 	  r = sd_json_variant_append_arraybo(&array,
 					     SD_JSON_BUILD_PAIR_STRING("NAME", images[i]->name),
 					     SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images[i]->image_name),
