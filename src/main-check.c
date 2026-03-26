@@ -69,8 +69,8 @@ varlink_check(const char *url, const char *prefix)
 
   if (url)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
@@ -78,8 +78,8 @@ varlink_check(const char *url, const char *prefix)
     }
   if (prefix)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));

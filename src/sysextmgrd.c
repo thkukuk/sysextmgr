@@ -45,6 +45,39 @@
 static int socket_activation = false;
 
 static int
+check_root(sd_varlink *link, sd_json_variant *parameters)
+{
+  uid_t peer_uid;
+  int r;
+
+  r = sd_varlink_get_peer_uid(link, &peer_uid);
+  if (r < 0)
+    {
+      log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
+      return r;
+    }
+  if (peer_uid != 0)
+    {
+      log_msg(LOG_WARNING, "ListImages: peer UID %i denied with additional options", peer_uid);
+      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
+    }
+  return 0;
+}
+
+static void
+set_verbose_log(void)
+{
+  set_max_log_level(LOG_INFO);
+}
+
+static void
+reset_verbose_log(void)
+{
+  reset_max_log_level();
+}
+
+
+static int
 vl_method_ping(sd_varlink *link, sd_json_variant *parameters,
 	       sd_varlink_method_flags_t _unused_(flags),
 	       void _unused_(*userdata))
@@ -69,7 +102,6 @@ vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters,
     { "Level", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int, 0, SD_JSON_MANDATORY },
     {}
   };
-  uid_t peer_uid;
   int r, level;
 
   log_msg(LOG_INFO, "Varlink method \"SetLogLevel\" called...");
@@ -80,17 +112,9 @@ vl_method_set_log_level(sd_varlink *link, sd_json_variant *parameters,
 
   log_msg(LOG_DEBUG, "Log level %i requested", level);
 
-  r = sd_varlink_get_peer_uid(link, &peer_uid);
+  r = check_root(link, parameters);
   if (r < 0)
-    {
-      log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
-      return r;
-    }
-  if (peer_uid != 0)
-    {
-      log_msg(LOG_WARNING, "SetLogLevel: peer UID %i denied", peer_uid);
-      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
-    }
+    return r;
 
   set_max_log_level(level);
 
@@ -194,14 +218,6 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
 }
 
-/* XXX */
-void
-oom(void)
-{
-  log_msg(LOG_CRIT, "Out of memory");
-  exit (1);
-}
-
 /* compare the image names, but move NULL to the end
    of the list */
 static int
@@ -274,19 +290,13 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   /* Only allow URL or verbose argument if called by root */
   if (p.url || p.verbose != config.verbose)
     {
-      uid_t peer_uid;
-      r = sd_varlink_get_peer_uid(link, &peer_uid);
+      r = check_root(link, parameters);
       if (r < 0)
-	{
-	  log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
-	  return r;
-	}
-      if (peer_uid != 0)
-	{
-	  log_msg(LOG_WARNING, "ListImages: peer UID %i denied with additional options", peer_uid);
-	  return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
-	}
+        return r;
     }
+
+  if (p.verbose != config.verbose)
+    set_verbose_log();
 
   r = load_os_release(NULL, &osrelease);
   if (r < 0)
@@ -295,6 +305,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
       if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
 	error = NULL;
       log_msg(LOG_ERR, "%s", error);
+      reset_verbose_log();
       return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
@@ -308,7 +319,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   if (url)
     {
-      r = image_remote_metadata(url, &images_remote, &n_remote, NULL, config.verify_signature, osrelease, p.verbose);
+      r = image_remote_metadata(url, &images_remote, &n_remote, NULL, config.verify_signature, osrelease);
       if (r < 0)
         {
 	  _cleanup_free_ char *error = NULL;
@@ -316,6 +327,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 		       url, strerror(-r)) < 0)
 	    error = NULL;
 	  log_msg(LOG_ERR, "%s", error);
+          reset_verbose_log();
 	  return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				    SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
 				    SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
@@ -324,7 +336,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   /* local available images */
   r = image_local_metadata(config.sysext_store_dir, &images_local, &n_local,
-			   NULL, osrelease, true, p.verbose);
+			   NULL, osrelease, true);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -333,6 +345,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
+      reset_verbose_log();
       return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
@@ -341,6 +354,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   if ((n_local + n_remote) == 0)
     {
       log_msg(LOG_INFO, "No images found");
+      reset_verbose_log();
       return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
 				SD_JSON_BUILD_PAIR_VARIANT("Images", array));
     }
@@ -359,6 +373,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
+      reset_verbose_log();
       return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
@@ -368,7 +383,13 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   /* merge remote and local images */
   images = calloc((n_remote + n_local + 1), sizeof(struct image_entry *));
   if (images == NULL)
-    oom(); /* XXX */
+    {
+      log_msg(LOG_ERR, "Out of memory");
+      reset_verbose_log();
+      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+                                SD_JSON_BUILD_PAIR_STRING("ErrorMsg", "Out of Memory"));
+    }
 
   size_t n = 0;
 
@@ -379,7 +400,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
       if (images[n]->deps)
         images[n]->compatible = extension_release_validate(images[n]->image_name,
                                                            osrelease, "system",
-                                                           images[n]->deps, p.verbose);
+                                                           images[n]->deps);
       n++;
     }
   for (size_t i = 0; i < n_local; i++)
@@ -441,12 +462,19 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 					     SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
 	  if(r < 0)
 	    {
-	      log_msg(LOG_ERR, "Appending array failed: %s", strerror(-r));
-	      /* XXX */
+	      _cleanup_free_ char *error = NULL;
+	      if (asprintf(&error, "Appending array failed: %s", strerror(-r)) < 0)
+		error = NULL;
+
+	      log_msg(LOG_ERR, "%s", error);
+	      return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+					SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+					SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
 	    }
 	}
     }
 
+  reset_verbose_log();
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
 			    SD_JSON_BUILD_PAIR_VARIANT("Images", array));
 }
@@ -489,23 +517,9 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
   /* Only allow URL, prefix or verbose argument if called by root */
   if (p.url || p.prefix || p.verbose != config.verbose)
     {
-      uid_t peer_uid;
-      r = sd_varlink_get_peer_uid(link, &peer_uid);
+      r = check_root(link, parameters);
       if (r < 0)
-        {
-          log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
-          return r;
-        }
-      if (peer_uid != 0)
-        {
-	  if (p.url || p.prefix)
-	    {
-	      log_msg(LOG_WARNING, "Check: peer UID %i denied with additional options", peer_uid);
-	      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
-	    }
-	  /* Ignore changed verbose flag, only root is allowed to set that */
-	  p.verbose = config.verbose;
-        }
+	return r;
     }
 
   /* use URL from config if none got provided via parameter */
@@ -541,7 +555,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 
   /* list of "installed" images visible to systemd-sysext */
   r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL,
-			   osrelease, true, p.verbose);
+			   osrelease, true);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -566,7 +580,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
     {
       _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease, p.verbose);
+      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (update)
         {
 	  log_msg(LOG_NOTICE, "Update available: %s -> %s", images_etc[n]->image_name, update->image_name);
@@ -659,19 +673,12 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     }
 
   /* only root is allowed to update images */
-  uid_t peer_uid;
-  r = sd_varlink_get_peer_uid(link, &peer_uid);
+  r = check_root(link, parameters);
   if (r < 0)
-    {
-      log_msg(LOG_ERR, "Failed to get peer UID: %s", strerror(-r));
-      return r;
-    }
-  if (peer_uid != 0)
-    {
-      log_msg(LOG_WARNING, "Update: peer UID %i denied to update images",
-	      peer_uid);
-      return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, parameters);
-    }
+    return r;
+
+  if (p.verbose != config.verbose)
+    set_verbose_log();
 
   /* use URL from config if none got provided via parameter */
   if (p.url)
@@ -682,14 +689,26 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
   if (p.prefix)
     {
       r = join_path(p.prefix, config.extensions_dir, &prefix_ext_dir);
-      if (r < 0) /* XXX return error msg */
-	return r;
+      if (r < 0)
+        {
+          log_msg(LOG_ERR, "Cannot allocate additional memory");
+	  reset_verbose_log();
+	  return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				    SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+				    SD_JSON_BUILD_PAIR_STRING("ErrorMsg", "Out of Memory"));
+	}
     }
   else
     {
       prefix_ext_dir = strdup(config.extensions_dir);
-      if (!prefix_ext_dir) /* XXX return error msg */
-	return -ENOMEM;
+      if (!prefix_ext_dir)
+        {
+	  log_msg(LOG_ERR, "Cannot allocate additional memory");
+	  reset_verbose_log();
+	  return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
+				    SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
+				    SD_JSON_BUILD_PAIR_STRING("ErrorMsg", "Out of Memory"));
+	}
     }
 
   log_msg(LOG_INFO, "Update parameters: url='%s', prefix='%s'", strna(p.url), strna(p.prefix));
@@ -701,13 +720,14 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
       if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
 	error = NULL;
       log_msg(LOG_ERR, "%s", error);
+      reset_verbose_log();
       return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
     }
 
   /* list of "installed" images visible to systemd-sysext */
-  r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, true, p.verbose);
+  r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, true);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -716,6 +736,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 	error = NULL;
 
       log_msg(LOG_ERR, "%s", error);
+      reset_verbose_log();
       return sd_varlink_errorbo(link, "org.openSUSE.sysextmgr.InternalError",
 				SD_JSON_BUILD_PAIR_BOOLEAN("Success", false),
                                 SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error?error:"Out of Memory"));
@@ -724,6 +745,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     {
       log_msg(LOG_NOTICE, "No installed images found.");
       /* XXX provide error message to client */
+      reset_verbose_log();
       return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
 				SD_JSON_BUILD_PAIR_VARIANT("Updated", array));
     }
@@ -732,7 +754,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
     {
       _cleanup_(free_image_entryp) struct image_entry *update = NULL;
 
-      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease, p.verbose);
+      r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (update)
         {
           _cleanup_free_ char *fn = NULL;
@@ -908,7 +930,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
     .deps = &wanted_deps
   };
 
-  r = get_latest_version(&wanted, &new, url, config.verify_signature, osrelease, p.verbose);
+  r = get_latest_version(&wanted, &new, url, config.verify_signature, osrelease);
   if (r < 0)
     {
       _cleanup_free_ char *error = NULL;
@@ -1078,7 +1100,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
     }
 
   /* list of images in the sysext_store */
-  r = image_local_metadata(config.sysext_store_dir, &images_store, &n_store, NULL, NULL, false, p.verbose);
+  r = image_local_metadata(config.sysext_store_dir, &images_store, &n_store, NULL, NULL, false);
   if (r < 0)
     {
       if (r == -ENOENT)
@@ -1362,7 +1384,7 @@ main(int argc, char **argv)
           print_help();
           return 0;
         case 'v':
-	  set_max_log_level(LOG_INFO);
+          set_verbose_log();
           break;
         case '\255':
           fprintf(stdout, "sysextmgrd (%s) %s\n", PACKAGE, VERSION);
