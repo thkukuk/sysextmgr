@@ -8,11 +8,19 @@
 #include "log_msg.h"
 
 static int log_level = LOG_WARNING;
+static int saved_log_level = LOG_WARNING;
 
 void
 set_max_log_level(int level)
 {
+  saved_log_level = log_level;
   log_level = level;
+}
+
+void
+reset_max_log_level(void)
+{
+  log_level = saved_log_level;
 }
 
 void

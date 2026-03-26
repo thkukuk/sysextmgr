@@ -77,7 +77,6 @@ varlink_list_images (const char *url)
   if (r < 0)
     return r;
 
-  /* XXX add Verbose */
   if (url)
     {
       r = sd_json_buildo(&params,
@@ -87,6 +86,18 @@ varlink_list_images (const char *url)
 	  fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
 	}
     }
+
+  if (arg_verbose)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("Verbose", SD_JSON_BUILD_BOOLEAN(arg_verbose)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
   r = sd_varlink_call(link, "org.openSUSE.sysextmgr.ListImages", params, &result, &error_id);
   if (r < 0)
     {

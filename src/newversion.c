@@ -74,7 +74,7 @@ check_if_newer(struct image_entry *old, struct image_entry *new,
 int
 get_latest_version(struct image_entry *curr, struct image_entry **new,
 		   const char *url, bool verify_signature,
-		   const struct osrelease *osrelease, bool verbose)
+		   const struct osrelease *osrelease)
 {
   _cleanup_(free_image_entryp) struct image_entry *update = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images_remote = NULL;
@@ -85,7 +85,7 @@ get_latest_version(struct image_entry *curr, struct image_entry **new,
   if (url)
     {
       r = image_remote_metadata(url, &images_remote, &n_remote, curr->name,
-				verify_signature, osrelease, verbose);
+				verify_signature, osrelease);
       if (r < 0)
 	{
 	  fprintf(stderr, "Fetching image data from '%s' failed: %s\n",
@@ -105,7 +105,7 @@ get_latest_version(struct image_entry *curr, struct image_entry **new,
     }
 
   /* now do the same with local images */
-  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, curr->name, osrelease, true, verbose);
+  r = image_local_metadata(SYSEXT_STORE_DIR, &images_local, &n_local, curr->name, osrelease, true);
   if (r < 0)
     {
       fprintf(stderr, "Searching for images in '%s' failed: %s\n",

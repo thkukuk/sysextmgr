@@ -36,11 +36,13 @@ usage(int retval)
   fputs("Options for check:\n", output);
   fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Don't print list of images but use return values\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("cleanup - Remove images no longer referenced\n", output);
   fputs("Options for cleanup:\n", output);
   fputs("  -q, --quiet           Return 0 if images got removed, else ENODATA\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
@@ -56,6 +58,7 @@ usage(int retval)
   fputs("install - Install newest compatible sysext image\n", output);
   fputs("Options for install:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("  <name 1> <name 2>...  Names of the images to be installed\n", output);
   fputs("\n", output);
 
@@ -76,6 +79,7 @@ usage(int retval)
   fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("Generic options:\n", output);
