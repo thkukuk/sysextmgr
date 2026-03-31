@@ -11,13 +11,6 @@
 #include "sysextmgr.h"
 
 void
-oom(void)
-{
-  fputs("ERROR: running out of memory!\n", stderr);
-  exit(EXIT_FAILURE);
-}
-
-void
 usage(int retval)
 {
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
@@ -330,7 +323,11 @@ main_dump_json(int argc, char **argv)
 
       r = load_image_json(AT_FDCWD, argv[i], &images);
       if (r < 0)
-	return EXIT_FAILURE;
+        {
+	  fprintf(stderr, "Failed load_image_json(%s): %s",
+		  argv[i], strerror(-r));
+	  return EXIT_FAILURE;
+	}
 
       for (size_t j = 0; images && images[j] != NULL; j++)
 	dump_image_deps(images[j]);

@@ -147,7 +147,10 @@ load_manifest(int dir_fd, const char *path, struct image_deps ***images)
 
   *images = calloc(2, sizeof(struct image_deps *));
   if (*images == NULL)
-    oom();
+    {
+      fprintf(stderr, "Out of memory");
+      return -ENOMEM;
+    }
   (*images)[1] = NULL;
 
   r = parse_manifest(json, &(*images)[0]);
