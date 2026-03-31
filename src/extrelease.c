@@ -20,7 +20,7 @@ load_ext_release(const char *fn, struct image_deps **res)
 
   e = calloc(1, sizeof(struct image_deps));
   if (e == NULL)
-    oom();
+    return -ENOMEM;
 
   if ((error = econf_readFile(&key_file, fn, "=", "#")))
     {

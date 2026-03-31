@@ -43,7 +43,7 @@ parse_image_deps(sd_json_variant *json, struct image_deps **res)
 
   e = calloc(1, sizeof(struct image_deps));
   if (e == NULL)
-    oom();
+    return -ENOMEM;
 
   r = sd_json_dispatch(json, dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, e);
   if (r < 0)
@@ -89,7 +89,7 @@ load_image_json(int fd, const char *path, struct image_deps ***images)
 
       *images = calloc(nr+1, sizeof (struct image_deps *));
       if (*images == NULL)
-	oom();
+	return -ENOMEM;
       (*images)[nr] = NULL;
 
       for (size_t i = 0; i < nr; i++)
@@ -110,7 +110,7 @@ load_image_json(int fd, const char *path, struct image_deps ***images)
     {
       *images = calloc(2, sizeof(struct image_deps *));
       if (*images == NULL)
-	oom();
+	return -ENOMEM;
       (*images)[1] = NULL;
 
       r = parse_image_deps(json, &(*images)[0]);

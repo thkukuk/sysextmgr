@@ -97,7 +97,7 @@ discover_images(const char *path, char ***result)
     {
       *result = malloc((num_dirs+1) * sizeof(char *));
       if (*result == NULL)
-	oom();
+	return -ENOMEM;
       (*result)[num_dirs] = NULL;
 
       for (int i = 0; i < num_dirs; i++)
@@ -121,7 +121,7 @@ discover_images(const char *path, char ***result)
 	  (*result)[i] = strdup(de[i]->d_name);
 
 	if ((*result)[i] == NULL)
-	  oom();
+          return -ENOMEM;
 	free(de[i]);
       }
       free(de);
@@ -294,7 +294,10 @@ image_json_from_url(const char *url, const char *image_name,
   _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
   r = load_image_json(fd, tmpfn, &images);
   if (r < 0)
-    return r;
+    {
+      log_msg(LOG_ERR, "Failed load_image_json failed: %s", strerror(-r));
+      return r;
+    }
 
   if (images == NULL || images[0] == NULL)
     {
@@ -421,7 +424,7 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
   size_t cur_entry = 0, max_entry = 10;
   *result = malloc((max_entry + 1) * sizeof(char *));
   if (*result == NULL)
-    oom();
+    return -ENOMEM;
   (*result)[0] = NULL;
 
   _cleanup_(freep) char *line = NULL;
@@ -446,11 +449,11 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 	      max_entry = max_entry * 2;
 	      *result = realloc(*result, (max_entry + 1) * sizeof(char *));
 	      if (*result == NULL)
-		oom();
+		return -ENOMEM;
 	    }
 	  (*result)[cur_entry] = strdup(p);
 	  if ((*result)[cur_entry] == NULL)
-	    oom();
+	    return -ENOMEM;
 	  cur_entry++;
 	  (*result)[cur_entry] = NULL;
 	}

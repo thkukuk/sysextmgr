@@ -31,7 +31,6 @@ extern int load_manifest(int fd, const char *path, struct image_deps ***images);
 
 extern int get_latest_version(struct image_entry *curr, struct image_entry **new, const char *url, bool verify_signature, const struct osrelease *osrelease);
 /* main.c */
-extern void oom(void);
 extern void usage(int retval);
 
 /* main-list.c */
