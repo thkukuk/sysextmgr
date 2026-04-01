@@ -25,6 +25,10 @@
 #include <stdbool.h>
 #include <libintl.h>
 #include <syslog.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-varlink.h>
 
@@ -107,6 +111,78 @@ check_root_permission(sd_varlink *link, sd_json_variant *parameters, const char 
   return 0;
 }
 
+/**
+ * Validates if a string is a legal UTF-8 sequence.
+ * Follows RFC 3629 rules to prevent overlong encodings and surrogate pairs.
+ */
+static bool is_valid_utf8(const char *str) {
+    const unsigned char *bytes = (const unsigned char *)str;
+    while (*bytes) {
+        if (bytes[0] <= 0x7F) {
+            /* 1-byte sequence (ASCII: 0xxxxxxx) */
+            bytes += 1;
+        } else if ((bytes[0] & 0xE0) == 0xC0) {
+            /* 2-byte sequence (110xxxxx 10xxxxxx) */
+            if ((bytes[1] & 0xC0) != 0x80 || (bytes[0] & 0x1E) == 0) return false;
+            bytes += 2;
+        } else if ((bytes[0] & 0xF0) == 0xE0) {
+            /* 3-byte sequence (1110xxxx 10xxxxxx 10xxxxxx) */
+            if ((bytes[1] & 0xC0) != 0x80 || (bytes[2] & 0xC0) != 0x80) return false;
+            /* Protect against surrogate pairs and overlong encoding */
+            if (bytes[0] == 0xE0 && (bytes[1] & 0x20) == 0) return false;
+            bytes += 3;
+        } else if ((bytes[0] & 0xF8) == 0xF0) {
+            /* 4-byte sequence (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx) */
+            if ((bytes[1] & 0xC0) != 0x80 || (bytes[2] & 0xC0) != 0x80 || (bytes[3] & 0xC0) != 0x80) return false;
+            if (bytes[0] == 0xF0 && (bytes[1] & 0x30) == 0) return false;
+            bytes += 4;
+        } else {
+            /* Invalid start byte */
+            return false;
+        }
+    }
+    return true;
+}
+
+/**
+ * Validates if a string is a valid environment variable assignment (KEY=VALUE).
+ * Checks for POSIX name compliance, UTF-8 validity, and absence of control chars.
+ */
+static bool env_assignment_is_valid(const char *e) {
+    if (!e || *e == '\0')
+        return false;
+
+    /* 1. Locate the assignment operator */
+    const char *eq = strchr(e, '=');
+    if (!eq || eq == e)
+        return false; /* No '=' found or name is empty */
+
+    /* 2. Validate the Variable Name (Key) */
+    /* Rules: Must not start with a digit, allowed: [A-Z, a-z, 0-9, _] */
+    if (isdigit((unsigned char)*e))
+        return false;
+
+    for (const char *p = e; p < eq; p++) {
+        if (!isalnum((unsigned char)*p) && *p != '_') {
+            return false;
+        }
+    }
+
+    /* 3. Validate UTF-8 integrity of the entire string */
+    if (!is_valid_utf8(e)) {
+        return false;
+    }
+
+    /* 4. Validate the Value (after '=') */
+    /* Disallow control characters (like \n, \r) to prevent injection */
+    for (const char *p = eq + 1; *p != '\0'; p++) {
+        if (iscntrl((unsigned char)*p)) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 
 static int
@@ -172,22 +248,18 @@ vl_method_get_environment(sd_varlink *link, sd_json_variant *parameters,
   if (r < 0)
     return r;
 
-#if 0 /* XXX */
   for (char **e = environ; *e != 0; e++)
     {
       if (!env_assignment_is_valid(*e))
 	goto invalid;
-      if (!utf8_is_valid(*e))
+      if (!is_valid_utf8(*e))
 	goto invalid;
     }
-#endif
 
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRV("Environment", environ));
 
-#if 0
  invalid:
   return sd_varlink_error(link, "io.systemd.service.InconsistentEnvironment", parameters);
-#endif
 }
 
 static int
