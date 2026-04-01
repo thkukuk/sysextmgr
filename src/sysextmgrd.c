@@ -72,6 +72,21 @@ static int internal_error(const char *error, sd_varlink *link)
 			    SD_JSON_BUILD_PAIR_STRING("ErrorMsg", error));
 }
 
+static int api_error(sd_varlink *link, const char *format, ...)
+{
+  int r;
+  _cleanup_free_ char *error = NULL;
+  va_list args;
+
+  va_start(args, format);
+  if (asprintf(&error, format, args) <0)
+    r = out_of_memory_error(link);
+  else
+    r = internal_error(error, link);
+  reset_verbose_log();
+  return r;
+}
+
 static int
 check_root_permission(sd_varlink *link, sd_json_variant *parameters, const char *message)
 {
@@ -207,13 +222,7 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
 
   r = sd_event_exit(loop, exit_code);
   if (r != 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Quit request: disabling event loop failed: %s", strerror(-r)) < 0)
-	return out_of_memory_error(link);
-      else
-        return internal_error(error, link);
-    }
+    return api_error(link, "Quit request: disabling event loop failed: error %s", strerror(-r));
 
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
 }
@@ -300,15 +309,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(NULL, &osrelease);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
 
   /* use URL from config if none got provided via parameter */
   if (p.url)
@@ -321,13 +322,12 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
       r = image_remote_metadata(url, &images_remote, &n_remote, NULL, config.verify_signature, osrelease);
       if (r < 0)
         {
-	  _cleanup_free_ char *error = NULL;
-          if (r == -ENOMEM || asprintf(&error, "Fetching image data from '%s' failed: %s",
-				      url, strerror(-r)) < 0)
-	    r = out_of_memory_error(link);
+          if (r == -ENOMEM) {
+            r = out_of_memory_error(link);
+            reset_verbose_log();
+	  }
 	  else
-	    r = internal_error(error, link);
-          reset_verbose_log();
+            r = api_error(link, "Fetching image data from '%s' failed: error %s", url, strerror(-r));
           return r;
         }
     }
@@ -337,13 +337,14 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 			   NULL, osrelease, true);
   if (r < 0)
     {
-      _cleanup_free_ char *error = NULL;
-      if (r == -ENOMEM || asprintf(&error, "Searching for images in '%s' failed: %s",
-				   config.sysext_store_dir, strerror(-r)) < 0)
-	r = out_of_memory_error(link);
+      if (r == -ENOMEM)
+        {
+          r = out_of_memory_error(link);
+	  reset_verbose_log();
+	}
       else
-	r = internal_error(error, link);
-      reset_verbose_log();
+        r = api_error(link, "Searching for images in '%s' failed: error %s",
+		      config.sysext_store_dir, strerror(-r));
       return r;
     }
 
@@ -360,12 +361,13 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
       r = calc_refcount(images_local, n_local);
       if (r != 0)
         {
-          _cleanup_free_ char *error = NULL;
-	  if (r == -ENOMEM || asprintf(&error, "Calculating refcount failed: %s", strerror(-r)) < 0)
-	    r = out_of_memory_error(link);
+          if (r == -ENOMEM)
+            {
+              r = out_of_memory_error(link);
+	      reset_verbose_log();
+	    }
 	  else
-	    r = internal_error(error, link);
-	  reset_verbose_log();
+            r = api_error(link, "Calculating refcount failed: error %s", strerror(-r));
 	  return r;
 	}
     }
@@ -374,16 +376,9 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_strv_free_ char **list_etc = NULL;
   r = discover_images(config.extensions_dir, &list_etc);
   if (r < 0 && r != -ENOENT)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Searching for images in '%s' failed: %s",
-		   config.extensions_dir, strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Searching for images in '%s' failed: error %s",
+		     config.extensions_dir, strerror(-r));
+
   n_etc = strv_length(list_etc);
 
   /* merge remote and local images */
@@ -449,7 +444,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
  	  log_msg(LOG_INFO, "name: %s", images[i]->name);
  	  log_msg(LOG_INFO, "version: %s", images[i]->deps->sysext_version_id);
  	  log_msg(LOG_INFO, "arch: %s", images[i]->deps->architecture);
-	  log_msg(LOG_INFO, "--------");
+
 	  r = sd_json_variant_append_arraybo(&array,
 					     SD_JSON_BUILD_PAIR_STRING("NAME", images[i]->name),
 					     SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images[i]->image_name),
@@ -465,15 +460,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 					     SD_JSON_BUILD_PAIR_BOOLEAN("COMPATIBLE", images[i]->compatible),
 					     SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
 	  if(r < 0)
-	    {
-	      _cleanup_free_ char *error = NULL;
-	      if (asprintf(&error, "Appending array failed: %s", strerror(-r)) < 0)
-	        r = out_of_memory_error(link);
-	      else
-		r = internal_error(error, link);
-              reset_verbose_log();
-              return r;
-	    }
+            return api_error(link, "Appending array failed: error %s", strerror(-r));
 	}
     }
 
@@ -557,30 +544,15 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(p.prefix, &osrelease);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
 
   /* list of "installed" images visible to systemd-sysext */
   r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL,
 			   osrelease, true);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (r == -ENOMEM || asprintf(&error, "Searching for images in '%s' failed: %s",
-				   prefix_ext_dir, strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Searching for images in '%s' failed: error %s",
+		     prefix_ext_dir, strerror(-r));
+
   if (n_etc == 0)
     {
       log_msg(LOG_NOTICE, "No installed images found.");
@@ -596,16 +568,9 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 
       r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (r < 0)
-        {
-          _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Failed to get latest version for '%s' from '%s': %s",
-		       p.install, url, strerror(-r)) < 0)
-            r = out_of_memory_error(link);
-	  else
-	    r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-        }
+        return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+			 p.install, url, strerror(-r));
+
       if (update)
         {
 	  log_msg(LOG_NOTICE, "Update available: %s -> %s", images_etc[n]->image_name, update->image_name);
@@ -622,15 +587,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 	      r = sd_json_variant_append_arraybo(&broken,
 						 SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_etc[n]->image_name));
 	      if(r < 0)
-		{
-                  _cleanup_free_ char *error = NULL;
-		  if (asprintf(&error, "Appending broken image failed: %s", strerror(-r)) < 0)
-		    r = out_of_memory_error(link);
-		  else
-		    r = internal_error(error, link);
-		  reset_verbose_log();
-		  return r;
-		}
+                return api_error(link, "Appending broken image failed: error %s", strerror(-r));
 	    }
 	  else
 	    {
@@ -638,15 +595,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 						 SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
 						 SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
 	      if(r < 0)
-		{
-                  _cleanup_free_ char *error = NULL;
-		  if (asprintf(&error, "Appending updates failed: %s", strerror(-r)) < 0)
-		    r = out_of_memory_error(link);
-		  else
-		    r = internal_error(error, link);
-		  reset_verbose_log();
-		  return r;
-		}
+                return api_error(link, "Appending updates failed: error %s", strerror(-r));
 	    }
 	}
     }
@@ -746,29 +695,14 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(p.prefix, &osrelease);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
 
   /* list of "installed" images visible to systemd-sysext */
   r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, true);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (r == -ENOMEM || asprintf(&error, "Searching for images in '%s' failed: %s",
-				   prefix_ext_dir, strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Searching for images in '%s' failed: error %s",
+		     prefix_ext_dir, strerror(-r));
+
   if (n_etc == 0)
     {
       log_msg(LOG_NOTICE, "No installed images found.");
@@ -784,16 +718,8 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
       r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (r < 0)
-        {
-          _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Failed to get latest version for '%s' from '%s': %s",
-		       p.install, url, strerror(-r)) < 0)
-            r = out_of_memory_error(link);
-	  else
-	    r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-        }
+        return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+			 p.install, url, strerror(-r));
       if (update)
         {
           _cleanup_free_ char *fn = NULL;
@@ -861,53 +787,22 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
                 }
 
               if (rename(tmpfn, fn) < 0)
-                {
-		  _cleanup_free_ char *error = NULL;
-		  if (asprintf(&error, "Error to rename '%s' to '%s': %m", tmpfn, fn) < 0)
-                    r = out_of_memory_error(link);
-		  else
-                    r = internal_error(error, link);
-		  reset_verbose_log();
-		  return r;
-                }
+                return api_error(link, "Error to rename '%s' to '%s': %m", tmpfn, fn);
             }
 
           if (unlink(oldlink) < 0)
-            {
-	      _cleanup_free_ char *error = NULL;
-	      if (asprintf(&error, "Error to delete '%s': %m", oldlink) < 0)
-                r = out_of_memory_error(link);
-	      else
-                r = internal_error(error, link);
-	      reset_verbose_log();
-	      return r;
-            }
+            return api_error(link, "Error to delete '%s': %m", oldlink);
 
 	  /* There could be several older versions of the image, they all get replaced with a link
 	     to the new version */
           if (symlink(fn, linkfn) < 0 && errno != EEXIST)
-            {
-	      _cleanup_free_ char *error = NULL;
-	      if (asprintf(&error, "Error to symlink '%s' to '%s': %m", fn, linkfn) < 0)
-                r = out_of_memory_error(link);
-	      else
-                r = internal_error(error, link);
-	      reset_verbose_log();
-	      return r;
-            }
+            return api_error(link, "Error to symlink '%s' to '%s': %m", fn, linkfn);
+
 	  r = sd_json_variant_append_arraybo(&array,
 					     SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
 					     SD_JSON_BUILD_PAIR_STRING("NewName", update->image_name));
 	  if(r < 0)
-	    {
-	      _cleanup_free_ char *error = NULL;
-	      if (asprintf(&error, "Appending array failed: %s", strerror(-r)) < 0)
-	        r = out_of_memory_error(link);
-	      else
-		r = internal_error(error, link);
-              reset_verbose_log();
-              return r;
-	    }
+            return api_error(link, "Appending array failed: %s", strerror(-r));
 	}
     }
 
@@ -964,15 +859,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(NULL, &osrelease);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Couldn't read os-release file: %s", strerror(-r)) < 0)
-        r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
 
   struct image_deps wanted_deps = {
     .architecture = (char *)architecture_to_string(uname_architecture()),
@@ -984,16 +871,9 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
   r = get_latest_version(&wanted, &new, url, config.verify_signature, osrelease);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Failed to get latest version for '%s' from '%s': %s",
-		   p.install, url, strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+		     p.install, url, strerror(-r));
+
   if (!new)
     {
       _cleanup_free_ char *error = NULL;
@@ -1039,16 +919,8 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
       /* make sure directory exists and is a directory */
       r = mkdir_p(config.sysext_store_dir, 0755);
       if (r < 0)
-	{
-	  _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Failed to create directory '%s': %s",
-		       config.sysext_store_dir, strerror(-r)) < 0)
-	    r = out_of_memory_error(link);
-	  else
-            r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-	}
+        return api_error(link, "Failed to create directory '%s': error %s",
+			 config.sysext_store_dir, strerror(-r));
 
       if (asprintf(&tmpfn, "%s/.%s.XXXXXX", config.sysext_store_dir, new->image_name) < 0)
         {
@@ -1074,41 +946,17 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 	}
 
       if (rename(tmpfn, fn) < 0)
-	{
-	  _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Error to rename '%s' to '%s': %m", tmpfn, fn) < 0)
-	    r = out_of_memory_error(link);
-	  else
-	    r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-        }
+        return api_error(link, "Error to rename '%s' to '%s': %m", tmpfn, fn);
     }
 
   /* make sure directory exists and is a directory */
   r = mkdir_p(config.extensions_dir, 0755);
   if (r < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Failed to create directory '%s': %s",
-		   config.extensions_dir, strerror(-r)) < 0)
-        r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Failed to create directory '%s': error %s",
+		     config.extensions_dir, strerror(-r));
 
   if (symlink(fn, linkfn) < 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (asprintf(&error, "Error to symlink '%s' to '%s': %m", fn, linkfn) < 0)
-        r = out_of_memory_error(link);
-      else
-	r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Error to symlink '%s' to '%s': %m", fn, linkfn);
 
   reset_verbose_log();
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true),
@@ -1165,13 +1013,14 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 	}
       else
 	{
-	  _cleanup_free_ char *error = NULL;
-	  if (r == -ENOMEM || asprintf(&error, "Searching for images in '%s' failed: %s",
-				       config.sysext_store_dir, strerror(-r)) < 0)
-	    r = out_of_memory_error(link);
-	  else
-	    r = internal_error(error, link);
-          reset_verbose_log();
+          if (r == -ENOMEM)
+            {
+              r = out_of_memory_error(link);
+	      reset_verbose_log();
+            }
+          else
+            r = api_error(link, "Searching for images in '%s' failed: error %s",
+			  config.sysext_store_dir, strerror(-r));
           return r;
 	}
     }
@@ -1184,15 +1033,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 
   r = calc_refcount(images_store, n_store);
   if (r != 0)
-    {
-      _cleanup_free_ char *error = NULL;
-      if (r == -ENOMEM || asprintf(&error, "Calculating refcount failed: %s", strerror(-r)) < 0)
-	r = out_of_memory_error(link);
-      else
-        r = internal_error(error, link);
-      reset_verbose_log();
-      return r;
-    }
+    return api_error(link, "Calculating refcount failed: error %s", strerror(-r));
 
   for (size_t i = 0; i < n_store; i++)
     {
@@ -1213,28 +1054,12 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 	}
 
       if (unlink(fn) < 0)
-	{
-	  _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Error to delete '%s': %m", fn) < 0)
-	    r = out_of_memory_error(link);
-	  else
-            r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-	}
+        return api_error(link, "Error to delete '%s': %m", fn);
 
       r = sd_json_variant_append_arraybo(&array,
                                          SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_store[i]->image_name));
       if(r < 0)
-	{
-          _cleanup_free_ char *error = NULL;
-	  if (asprintf(&error, "Appending array failed: %s", strerror(-r)) < 0)
-	    r = out_of_memory_error(link);
-	  else
-	    r = internal_error(error, link);
-	  reset_verbose_log();
-	  return r;
-        }
+        return api_error(link, "Appending array failed: error %s", strerror(-r));
     }
 
   reset_verbose_log();
