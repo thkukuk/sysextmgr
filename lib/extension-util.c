@@ -11,6 +11,15 @@
 #include "strv.h"
 #include "log_msg.h"
 
+int extention_architecture_compatible(const char *architecture)
+{
+   if(!isempty(architecture) && !streq(architecture, "_any") &&
+      !streq(architecture_to_string(uname_architecture()), architecture))
+     return 0;
+   else
+     return 1;
+}
+
 int
 extension_release_validate(const char *name,
 			   const struct osrelease *host_os_release,
@@ -32,8 +41,7 @@ extension_release_validate(const char *name,
 
   /* When the architecture field is present and not '_any' it must match the host - for now just look at uname but in
    * the future we could check if the kernel also supports 32 bit or binfmt has a translator set up for the architecture */
-  if (!isempty(extension->architecture) && !streq(extension->architecture, "_any") &&
-        !streq(architecture_to_string(uname_architecture()), extension->architecture))
+  if (!extention_architecture_compatible(extension->architecture))
     {
       log_msg(LOG_INFO, "Extension '%s' is for architecture '%s', but deployed on top of '%s'.\n",
 	      name, extension->architecture, architecture_to_string(uname_architecture()));

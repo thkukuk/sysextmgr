@@ -10,6 +10,7 @@
 #include "varlink-client.h"
 
 static bool arg_verbose = false;
+static bool arg_all = false;
 
 struct list_images {
   bool success;
@@ -94,6 +95,17 @@ varlink_list_images (const char *url)
       if (r < 0)
         {
           fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
+  if (arg_all)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("All", SD_JSON_BUILD_BOOLEAN(arg_all)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add \"all\" to parameter list: %s\n", strerror(-r));
           return r;
         }
     }
@@ -229,7 +241,7 @@ main_list(int argc, char **argv)
   char *url = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "u:v", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "u:va", longopts, NULL)) != -1)
     {
       switch (c)
         {
@@ -238,6 +250,9 @@ main_list(int argc, char **argv)
           break;
 	case 'v':
 	  arg_verbose = true;
+	  break;
+	case 'a':
+	  arg_all = true;
 	  break;
         default:
           usage(EXIT_FAILURE);

@@ -322,6 +322,7 @@ image_cmp(const void *a, const void *b)
 struct parameters {
   char *url;
   bool verbose;
+  bool all_architecture;
   char *install;
   char *prefix;
 };
@@ -343,12 +344,14 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_(parameters_free) struct parameters p = {
     .url = NULL,
     .verbose = config.verbose,
+    .all_architecture = false,
     .install = NULL,
     .prefix = NULL,
   };
   static const sd_json_dispatch_field dispatch_table[] = {
     { "URL",     SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(struct parameters, url), 0},
     { "Verbose", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, verbose), 0},
+    { "All", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(struct parameters, all_architecture), 0},
     {}
   };
   _cleanup_(free_os_releasep) struct osrelease *osrelease = NULL;
@@ -510,12 +513,14 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   for (size_t i = 0; images[i] != NULL; i++)
     {
-      if (images[i]->deps)
+      if (images[i]->deps &&
+	  (p.all_architecture || extention_architecture_compatible(images[i]->deps->architecture)))
 	{
 	  log_msg(LOG_INFO, "--------");
- 	  log_msg(LOG_INFO, "name: %s", images[i]->name);
- 	  log_msg(LOG_INFO, "version: %s", images[i]->deps->sysext_version_id);
- 	  log_msg(LOG_INFO, "arch: %s", images[i]->deps->architecture);
+	  log_msg(LOG_INFO, "name: %s", images[i]->name);
+	  log_msg(LOG_INFO, "version: %s", images[i]->deps->sysext_version_id);
+	  log_msg(LOG_INFO, "arch: %s", images[i]->deps->architecture);
+	  log_msg(LOG_INFO, "compatible: %d", images[i]->compatible);
 
 	  r = sd_json_variant_append_arraybo(&array,
 					     SD_JSON_BUILD_PAIR_STRING("NAME", images[i]->name),
@@ -532,7 +537,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 					     SD_JSON_BUILD_PAIR_BOOLEAN("COMPATIBLE", images[i]->compatible),
 					     SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
 	  if(r < 0)
-            return api_error(link, "Appending array failed: error %s", strerror(-r));
+	    return api_error(link, "Appending array failed: error %s", strerror(-r));
 	}
     }
 
