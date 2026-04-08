@@ -21,6 +21,9 @@
 #include "strv.h"
 #include "images-list.h"
 #include "log_msg.h"
+#include "mkdir_p.h"
+
+#define CACHE_DIR "/var/cache/sysextmgrd/meta"
 
 static int
 readlink_malloc(const char *path, const char *name, char **ret)
@@ -221,30 +224,55 @@ static int
 image_read_metadata(const char *image_name, struct image_deps **res)
 {
   _cleanup_(free_image_depsp) struct image_deps *image = NULL;
-  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-extrelease.XXXXXX";
+  _cleanup_free_ char *cache_filename = NULL;
   _cleanup_close_ int fd = -EBADF;
+  struct stat st;
   int r;
 
   assert(image_name);
   assert(res);
 
-  fd = mkostemp_safe(tmpfn);
-
-  r = extract(SYSEXT_STORE_DIR, image_name, fd);
+  r = mkdir_p(CACHE_DIR, 0755);
   if (r < 0)
     {
-      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
-	      image_name, strerror(-r));
+      log_msg(LOG_ERR, "Cannot create %s: %s", CACHE_DIR, strerror(-r));
       return r;
     }
-  else if (r > 0)
+
+  r = join_path(CACHE_DIR, image_name, &cache_filename);
+  if (r < 0)
     {
-      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
-	      image_name, r);
-      return -EINVAL;
+      log_msg(LOG_ERR, "Cannot create filename: %s", strerror(-r));
+      return r;
     }
 
-  r = load_ext_release(tmpfn, &image);
+  if (stat(cache_filename, &st) != 0)
+    {
+      /* The meta data is not cached. So extract it from image. */
+      fd = open(cache_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
+      if (fd < 0)
+	{
+          log_msg(LOG_ERR, "Cannot open filename %s: %s", cache_filename, strerror (errno));
+	  return -1;
+	}
+
+      r = extract(SYSEXT_STORE_DIR, image_name, fd);
+      if (r < 0)
+	{
+          log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
+		  image_name, strerror(-r));
+	  return r;
+	}
+      else if (r > 0)
+        {
+          log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
+		  image_name, r);
+	  return -EINVAL;
+	}
+    }
+
+  r = load_ext_release(cache_filename, &image);
   if (r < 0)
     return r;
 
