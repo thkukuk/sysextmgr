@@ -23,8 +23,6 @@
 #include "log_msg.h"
 #include "mkdir_p.h"
 
-#define CACHE_DIR "/var/cache/sysextmgrd/meta"
-
 static int
 readlink_malloc(const char *path, const char *name, char **ret)
 {
@@ -232,14 +230,15 @@ image_read_metadata(const char *image_name, struct image_deps **res)
   assert(image_name);
   assert(res);
 
-  r = mkdir_p(CACHE_DIR, 0755);
+  r = mkdir_p(SYSEXT_CACHE_META_DIR, 0755);
   if (r < 0)
     {
-      log_msg(LOG_ERR, "Cannot create %s: %s", CACHE_DIR, strerror(-r));
+      log_msg(LOG_ERR, "Cannot create %s: %s",
+	      SYSEXT_CACHE_META_DIR, strerror(-r));
       return r;
     }
 
-  r = join_path(CACHE_DIR, image_name, &cache_filename);
+  r = join_path(SYSEXT_CACHE_META_DIR, image_name, &cache_filename);
   if (r < 0)
     {
       log_msg(LOG_ERR, "Cannot create filename: %s", strerror(-r));

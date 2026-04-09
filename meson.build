@@ -60,6 +60,9 @@ tmpfilesdir = prefixdir / 'lib/tmpfiles.d'
 sysextstoredir = get_option('sysextstoredir')
 conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
 
+sysextcachemetadir = get_option('sysextcachemetadir')
+conf.set_quoted('SYSEXT_CACHE_META_DIR', sysextcachemetadir)
+
 extensionsdir = get_option('extensionsdir')
 conf.set_quoted('EXTENSIONS_DIR', extensionsdir)
 
