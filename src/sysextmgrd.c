@@ -1101,6 +1101,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
           return r;
 	}
     }
+
   if (n_store == 0)
     {
       log_msg(LOG_NOTICE, "No installed images found.");
@@ -1115,6 +1116,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
   for (size_t i = 0; i < n_store; i++)
     {
       _cleanup_free_ char *fn = NULL;
+      _cleanup_free_ char *fn_cache = NULL;
 
       if (images_store[i]->refcount > 0)
 	continue;
@@ -1132,6 +1134,16 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 
       if (unlink(fn) < 0)
         return api_error(link, "Error to delete '%s': %m", fn);
+
+      /* remove cached meta values */
+      r = join_path(SYSEXT_CACHE_META_DIR, images_store[i]->image_name, &fn_cache);
+      if (r < 0)
+        {
+          r = out_of_memory_error(link);
+	  reset_verbose_log();
+	  return r;
+	}
+      unlink(fn_cache);
 
       r = sd_json_variant_append_arraybo(&array,
                                          SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_store[i]->image_name));
