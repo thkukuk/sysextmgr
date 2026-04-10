@@ -153,7 +153,8 @@ snapshot_list(const char *snapshot, struct image_entry **list, size_t n)
     return -ENOMEM;
 
   int num_dirs = scandir(path, &de, image_filter, NULL /* alphasort */);
-  if (num_dirs < 0)
+
+  if (num_dirs < 0 && errno != ENOENT)
     return -errno;
 
   for (int i = 0; i < num_dirs; i++)
