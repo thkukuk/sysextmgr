@@ -83,7 +83,7 @@ static int api_error(sd_varlink *link, const char *format, ...)
   va_list args;
 
   va_start(args, format);
-  if (asprintf(&error, format, args) <0)
+  if (vasprintf(&error, format, args) <0)
     r = out_of_memory_error(link);
   else
     r = internal_error(error, link);
@@ -294,7 +294,7 @@ vl_method_quit(sd_varlink *link, sd_json_variant *parameters,
 
   r = sd_event_exit(loop, exit_code);
   if (r != 0)
-    return api_error(link, "Quit request: disabling event loop failed: error %s", strerror(-r));
+    return api_error(link, "Quit request: disabling event loop failed: error - %s", strerror(-r));
 
   return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("Success", true));
 }
@@ -384,7 +384,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(NULL, &osrelease);
   if (r < 0)
-    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
+    return api_error(link, "Couldn't read os-release file: error - %s", strerror(-r));
 
   /* use URL from config if none got provided via parameter */
   if (p.url)
@@ -402,7 +402,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
             reset_verbose_log();
 	  }
 	  else
-            r = api_error(link, "Fetching image data from '%s' failed: error %s", url, strerror(-r));
+            r = api_error(link, "Fetching image data from '%s' failed: error - %s", url, strerror(-r));
           return r;
         }
     }
@@ -418,7 +418,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 	  reset_verbose_log();
 	}
       else
-        r = api_error(link, "Searching for images in '%s' failed: error %s",
+        r = api_error(link, "Searching for images in '%s' failed: error - %s",
 		      config.sysext_store_dir, strerror(-r));
       return r;
     }
@@ -442,7 +442,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 	      reset_verbose_log();
 	    }
 	  else
-            r = api_error(link, "Calculating refcount failed: error %s", strerror(-r));
+            r = api_error(link, "Calculating refcount failed: error - %s", strerror(-r));
 	  return r;
 	}
     }
@@ -451,7 +451,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_strv_free_ char **list_etc = NULL;
   r = discover_images(config.extensions_dir, &list_etc);
   if (r < 0 && r != -ENOENT)
-    return api_error(link, "Searching for images in '%s' failed: error %s",
+    return api_error(link, "Searching for images in '%s' failed: error - %s",
 		     config.extensions_dir, strerror(-r));
 
   n_etc = strv_length(list_etc);
@@ -537,7 +537,7 @@ vl_method_list_images(sd_varlink *link, sd_json_variant *parameters,
 					     SD_JSON_BUILD_PAIR_BOOLEAN("COMPATIBLE", images[i]->compatible),
 					     SD_JSON_BUILD_PAIR_INTEGER("REFCOUNT", images[i]->refcount));
 	  if(r < 0)
-	    return api_error(link, "Appending array failed: error %s", strerror(-r));
+	    return api_error(link, "Appending array failed: error - %s", strerror(-r));
 	}
     }
 
@@ -621,13 +621,13 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(p.prefix, &osrelease);
   if (r < 0)
-    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
+    return api_error(link, "Couldn't read os-release file: error - %s", strerror(-r));
 
   /* list of "installed" images visible to systemd-sysext */
   r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL,
 			   osrelease, true);
   if (r < 0)
-    return api_error(link, "Searching for images in '%s' failed: error %s",
+    return api_error(link, "Searching for images in '%s' failed: error - %s",
 		     prefix_ext_dir, strerror(-r));
 
   if (n_etc == 0)
@@ -645,7 +645,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 
       r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (r < 0)
-        return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+        return api_error(link, "Failed to get latest version for '%s' from '%s': error - %s",
 			 p.install, url, strerror(-r));
 
       if (update)
@@ -664,7 +664,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 	      r = sd_json_variant_append_arraybo(&broken,
 						 SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_etc[n]->image_name));
 	      if(r < 0)
-                return api_error(link, "Appending broken image failed: error %s", strerror(-r));
+                return api_error(link, "Appending broken image failed: error - %s", strerror(-r));
 	    }
 	  else
 	    {
@@ -672,7 +672,7 @@ vl_method_check(sd_varlink *link, sd_json_variant *parameters,
 						 SD_JSON_BUILD_PAIR_STRING("OldName", images_etc[n]->image_name),
 						 SD_JSON_BUILD_PAIR_STRING("NewName", NULL));
 	      if(r < 0)
-                return api_error(link, "Appending updates failed: error %s", strerror(-r));
+                return api_error(link, "Appending updates failed: error - %s", strerror(-r));
 	    }
 	}
     }
@@ -772,12 +772,12 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(p.prefix, &osrelease);
   if (r < 0)
-    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
+    return api_error(link, "Couldn't read os-release file: error - %s", strerror(-r));
 
   /* list of "installed" images visible to systemd-sysext */
   r = image_local_metadata(prefix_ext_dir, &images_etc, &n_etc, NULL, osrelease, true);
   if (r < 0)
-    return api_error(link, "Searching for images in '%s' failed: error %s",
+    return api_error(link, "Searching for images in '%s' failed: error - %s",
 		     prefix_ext_dir, strerror(-r));
 
   if (n_etc == 0)
@@ -795,7 +795,7 @@ vl_method_update(sd_varlink *link, sd_json_variant *parameters,
 
       r = get_latest_version(images_etc[n], &update, url, config.verify_signature, osrelease);
       if (r < 0)
-        return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+        return api_error(link, "Failed to get latest version for '%s' from '%s': error - %s",
 			 p.install, url, strerror(-r));
       if (update)
         {
@@ -936,7 +936,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
   r = load_os_release(NULL, &osrelease);
   if (r < 0)
-    return api_error(link, "Couldn't read os-release file: error %s", strerror(-r));
+    return api_error(link, "Couldn't read os-release file: error - %s", strerror(-r));
 
   struct image_deps wanted_deps = {
     .architecture = (char *)architecture_to_string(uname_architecture()),
@@ -948,7 +948,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
 
   r = get_latest_version(&wanted, &new, url, config.verify_signature, osrelease);
   if (r < 0)
-    return api_error(link, "Failed to get latest version for '%s' from '%s': error %s",
+    return api_error(link, "Failed to get latest version for '%s' from '%s': error - %s",
 		     p.install, url, strerror(-r));
 
   if (!new)
@@ -996,7 +996,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
       /* make sure directory exists and is a directory */
       r = mkdir_p(config.sysext_store_dir, 0755);
       if (r < 0)
-        return api_error(link, "Failed to create directory '%s': error %s",
+        return api_error(link, "Failed to create directory '%s': error - %s",
 			 config.sysext_store_dir, strerror(-r));
 
       if (asprintf(&tmpfn, "%s/.%s.XXXXXX", config.sysext_store_dir, new->image_name) < 0)
@@ -1029,7 +1029,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   /* make sure directory exists and is a directory */
   r = mkdir_p(config.extensions_dir, 0755);
   if (r < 0)
-    return api_error(link, "Failed to create directory '%s': error %s",
+    return api_error(link, "Failed to create directory '%s': error - %s",
 		     config.extensions_dir, strerror(-r));
 
   if (symlink(fn, linkfn) < 0)
@@ -1096,7 +1096,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 	      reset_verbose_log();
             }
           else
-            r = api_error(link, "Searching for images in '%s' failed: error %s",
+            r = api_error(link, "Searching for images in '%s' failed: error - %s",
 			  config.sysext_store_dir, strerror(-r));
           return r;
 	}
@@ -1111,7 +1111,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
 
   r = calc_refcount(images_store, n_store);
   if (r != 0)
-    return api_error(link, "Calculating refcount failed: error %s", strerror(-r));
+    return api_error(link, "Calculating refcount failed: error - %s", strerror(-r));
 
   for (size_t i = 0; i < n_store; i++)
     {
@@ -1148,7 +1148,7 @@ vl_method_cleanup(sd_varlink *link, sd_json_variant *parameters,
       r = sd_json_variant_append_arraybo(&array,
                                          SD_JSON_BUILD_PAIR_STRING("IMAGE_NAME", images_store[i]->image_name));
       if(r < 0)
-        return api_error(link, "Appending array failed: error %s", strerror(-r));
+        return api_error(link, "Appending array failed: error - %s", strerror(-r));
     }
 
   reset_verbose_log();
