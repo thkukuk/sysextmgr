@@ -64,15 +64,20 @@ extension_release_validate(const char *name,
     }
 
   /* Match extension OS ID against host OS ID or ID_LIKE */
+  /* This is currently not supported. It seems that is too much general. */
+  /* E.g. "openSUSE MicroOS" has ID_LIKE: "suse opensuse opensuse-tumbleweed microos sl-micro" */
   if (host_os_release->id_like)
     {
-#if 0 /* XXX */
+#if 0
       id_like_l = strv_split(host_os_release->id_like, WHITESPACE);
+      if (!id_like_l)
+      {
+        log_msg(LOG_ERR, "Out of Memory");
+	return 0;
+      }
 #else
       id_like_l = NULL;
 #endif
-      /* XXX if (!id_like_l)
-	 return log_oom(); */
     }
 
   if (!streq(host_os_release->id, extension->id) && !strv_contains(id_like_l, extension->id))
