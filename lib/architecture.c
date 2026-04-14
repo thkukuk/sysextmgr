@@ -158,14 +158,13 @@ Architecture uname_architecture(void) {
         if (cached != _ARCHITECTURE_INVALID)
                 return cached;
 
-        // XXX assert_se(uname(&u) >= 0);
-	uname(&u);
+	if (uname(&u) != -1)
+	{
+          FOREACH_ELEMENT(entry, arch_map)
+		  if (streq(entry->machine, u.machine))
+			  return cached = entry->arch;
+	}
 
-        FOREACH_ELEMENT(entry, arch_map)
-                if (streq(entry->machine, u.machine))
-                        return cached = entry->arch;
-
-        // assert_not_reached();
         return _ARCHITECTURE_INVALID;
 }
 
