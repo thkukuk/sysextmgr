@@ -62,7 +62,7 @@ extract(const char *path, const char *name, int outfd)
 
       if (r != 0)
 	{
-          log_msg(LOG_ERR, "Cannot start: %s\n", strerror(r));
+          log_msg(LOG_ERR, "Cannot start extract: %s\n", strerror(r));
 	} else {
 	  /* waiting for child process */
           int status;
