@@ -63,15 +63,32 @@ extract(const char *path, const char *name, int outfd)
       if (r != 0)
 	{
           log_msg(LOG_ERR, "Cannot start extract: %s\n", strerror(r));
+          posix_spawn_file_actions_destroy(&actions);
+          return r;
 	} else {
-	  /* waiting for child process */
+          /* waiting for child process */
           int status;
-          waitpid(pid, &status, 0);
+
+          r =waitpid(pid, &status, 0);
+          if (r == -1)
+            {
+              posix_spawn_file_actions_destroy(&actions);
+	      return -errno;
+	    }
+
+	  // Use WIFEXITED to check the result
+          if (!WIFEXITED(status))
+            {
+              posix_spawn_file_actions_destroy(&actions);
+              return status;
+	    }
         }
     }
   else
     {
       log_msg(LOG_ERR, "Cannot set stdout: %s\n", strerror(r));
+      posix_spawn_file_actions_destroy(&actions);
+      return r;
     }
 
   posix_spawn_file_actions_destroy(&actions);
