@@ -4,10 +4,12 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <libsmartcols/libsmartcols.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
 #include "varlink-client.h"
+#include "pager.h"
 
 static bool arg_verbose = false;
 static bool arg_all = false;
@@ -73,6 +75,9 @@ varlink_list_images (const char *url)
   sd_json_variant *result;
   const char *error_id = NULL;
   int r;
+  struct libscols_table *table;
+  struct libscols_line *line;
+  FILE *out;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
@@ -85,6 +90,7 @@ varlink_list_images (const char *url)
       if (r < 0)
 	{
 	  fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+	  return r;
 	}
     }
 
@@ -150,8 +156,22 @@ varlink_list_images (const char *url)
       return -EINVAL;
     }
 
-  /* XXX Use table_print_with_pager */
-  printf (" R L I C  # Name\n");
+  /* Initialize the table */
+  table = scols_new_table();
+  if (!table)
+    {
+      fprintf(stderr, "Failed to allocate table\n");
+      return EIO;
+    }
+
+  // Define Column Headers
+  scols_table_new_column(table, "R", 1.1, 0);
+  scols_table_new_column(table, "L", 1.1, 0);
+  scols_table_new_column(table, "I", 1.1, 0);
+  scols_table_new_column(table, "C", 1.1, 0);
+  scols_table_new_column(table, " #", 2, 0);
+  scols_table_new_column(table, "Name", 0, SCOLS_FL_TRUNC);
+  scols_table_set_column_separator(table, " | ");
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -202,30 +222,42 @@ varlink_list_images (const char *url)
           return r;
         }
 
-      if (e.remote)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.local)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.installed)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.compatible)
-	printf(" x");
-      else
-	printf("  ");
+      line = scols_table_new_line(table, NULL);
+      scols_line_sprintf(line, 0, "%s", e.remote ? "X" : " ");
+      scols_line_sprintf(line, 1, "%s", e.local ? "X" : " ");
+      scols_line_sprintf(line, 2, "%s", e.installed ? "X" : " ");
+      scols_line_sprintf(line, 3, "%s", e.compatible ? "X" : " ");
       if (e.refcount > 0)
-	printf(" %2d", e.refcount);
+        scols_line_sprintf(line, 4, "%2d", e.refcount);
       else
-	printf("  -");
-      printf(" %s\n", e.image_name);
+        scols_line_sprintf(line, 4, " -");
+      scols_line_sprintf(line, 5, "%s", e.image_name);
     }
 
-  printf("R = remote, L = local, I = installed, C = commpatible, # = used in snapshots\n");
+  /* Setup Pager and Print */
+  out = setup_pager();
+
+   if (out == stdout) {
+        /* Standard print if no pager */
+        scols_print_table(table);
+    } else {
+        /* Redirect stdout to the pager pipe */
+        int original_stdout = dup(STDOUT_FILENO);
+        dup2(fileno(out), STDOUT_FILENO);
+
+        /* Now this prints to the PAGER because stdout points there */
+        scols_print_table(table);
+        printf("\nR = remote, L = local, I = installed, C = commpatible, # = used in snapshots\n");
+
+        /* Flush and restore stdout */
+        fflush(stdout);
+        dup2(original_stdout, STDOUT_FILENO);
+        close(original_stdout);
+
+        pclose(out);
+    }
+
+  scols_unref_table(table);
 
   return 0;
 }
