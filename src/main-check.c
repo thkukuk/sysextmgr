@@ -64,7 +64,7 @@ varlink_check(const char *url, const char *prefix)
   bool update_available = false;
   bool broken_images = false;
   int r;
-  struct libscols_table *table;
+  struct libscols_table *table = NULL;
   struct libscols_line *line;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
@@ -213,14 +213,28 @@ varlink_check(const char *url, const char *prefix)
 	}
     }
 
-  /* Setup Pager and Print */
-  pager(table,"");
+  if (header_printed)
+    {
+      /* Setup Pager and Print */
+      pager(table,"");
 
-  scols_unref_table(table);
+      scols_unref_table(table);
+      table = NULL;
+    }
 
-  /* XXX Use table_print_with_pager */
   if (!arg_quiet && sd_json_variant_elements(p.contents_broken) > 0)
-    printf ("Incompatible installed images without update:\n");
+  {
+    /* Initialize the table */
+    table = scols_new_table();
+    if (!table)
+    {
+      fprintf(stderr, "Failed to allocate table\n");
+      return -EIO;
+    }
+
+    // Define Column Headers
+    scols_table_new_column(table, "Incompatible installed images without update:", 0, 0);
+  }
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_broken); i++)
     {
@@ -248,7 +262,18 @@ varlink_check(const char *url, const char *prefix)
 	broken_images = true;
 
       if (!arg_quiet && image_name)
-	printf ("%s\n", image_name);
+        {
+          line = scols_table_new_line(table, NULL);
+          scols_line_sprintf(line, 0, "%s", image_name);
+        }
+    }
+
+  if (table)
+    {
+      /* Setup Pager and Print */
+      pager(table,"");
+
+      scols_unref_table(table);
     }
 
   /* no images for the installed version available */
