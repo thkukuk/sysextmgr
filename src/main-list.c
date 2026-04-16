@@ -161,7 +161,7 @@ varlink_list_images (const char *url)
   if (!table)
     {
       fprintf(stderr, "Failed to allocate table\n");
-      return EIO;
+      return -EIO;
     }
 
   // Define Column Headers
@@ -237,10 +237,13 @@ varlink_list_images (const char *url)
   /* Setup Pager and Print */
   out = setup_pager();
 
-   if (out == stdout) {
+   if (out == stdout)
+     {
         /* Standard print if no pager */
         scols_print_table(table);
-    } else {
+     }
+   else
+     {
         /* Redirect stdout to the pager pipe */
         int original_stdout = dup(STDOUT_FILENO);
         dup2(fileno(out), STDOUT_FILENO);

@@ -65,7 +65,9 @@ extract(const char *path, const char *name, int outfd)
           log_msg(LOG_ERR, "Cannot start extract: %s\n", strerror(r));
           posix_spawn_file_actions_destroy(&actions);
           return r;
-	} else {
+	}
+      else
+	{
           /* waiting for child process */
           int status;
 

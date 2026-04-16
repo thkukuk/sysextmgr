@@ -4,10 +4,12 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <libsmartcols/libsmartcols.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
 #include "varlink-client.h"
+#include "pager.h"
 
 static bool arg_verbose = false;
 static bool arg_quiet = false;
@@ -62,6 +64,9 @@ varlink_check(const char *url, const char *prefix)
   bool update_available = false;
   bool broken_images = false;
   int r;
+  struct libscols_table *table;
+  struct libscols_line *line;
+  FILE *out;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
@@ -144,7 +149,6 @@ varlink_check(const char *url, const char *prefix)
       return -EINVAL;
     }
 
-  /* XXX Use table_print_with_pager */
   bool header_printed = false;
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_update); i++)
     {
@@ -180,17 +184,62 @@ varlink_check(const char *url, const char *prefix)
 	{
 	  if ((e.new_name || arg_verbose) && !header_printed)
 	    {
-	      printf ("Old image -> New image\n");
+              /* Initialize the table */
+	      table = scols_new_table();
+	      if (!table)
+                {
+                  fprintf(stderr, "Failed to allocate table\n");
+                  return -EIO;
+                }
+
+              // Define Column Headers
+	      scols_table_new_column(table, "Old image", 0, 0);
+	      scols_table_new_column(table, "New image", 0, 0);
+	      scols_table_set_column_separator(table, " -> ");
+
 	      header_printed = true;
 	    }
 
+          line = scols_table_new_line(table, NULL);
 	  if (e.new_name)
-	    printf ("%s -> %s\n", e.old_name, e.new_name);
-	  else
-	    if (arg_verbose)
-	      printf ("%s -> No compatible newer version found\n", e.old_name);
+            {
+	      scols_line_sprintf(line, 0, "%s", e.old_name);
+	      scols_line_sprintf(line, 1, "%s", e.new_name);
+            }
+	  else if (arg_verbose)
+	    {
+	      scols_line_sprintf(line, 0, "%s", e.old_name);
+	      scols_line_sprintf(line, 1, "No compatible newer version found");
+	    }
 	}
     }
+
+  /* Setup Pager and Print */
+  out = setup_pager();
+
+   if (out == stdout)
+     {
+        /* Standard print if no pager */
+        scols_print_table(table);
+     }
+   else
+     {
+        /* Redirect stdout to the pager pipe */
+        int original_stdout = dup(STDOUT_FILENO);
+        dup2(fileno(out), STDOUT_FILENO);
+
+        /* Now this prints to the PAGER because stdout points there */
+        scols_print_table(table);
+
+        /* Flush and restore stdout */
+        fflush(stdout);
+        dup2(original_stdout, STDOUT_FILENO);
+        close(original_stdout);
+
+        pclose(out);
+    }
+
+  scols_unref_table(table);
 
   /* XXX Use table_print_with_pager */
   if (!arg_quiet && sd_json_variant_elements(p.contents_broken) > 0)

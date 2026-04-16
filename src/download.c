@@ -88,21 +88,23 @@ download(const char *url, const char *fn, const char *destfn, bool verify_signat
   r = posix_spawn(&pid, SYSTEMD_PULL_PATH, NULL, NULL, (char *const *)cmdline, environ);
 
   if (r != 0)
-  {
-    log_msg(LOG_ERR, "Cannot start download: %s\n", strerror(r));
-    return r;
-  } else {
-    /* waiting for child process */
-    int status;
+    {
+      log_msg(LOG_ERR, "Cannot start download: %s\n", strerror(r));
+      return r;
+    }
+  else
+    {
+      /* waiting for child process */
+      int status;
 
-    r =waitpid(pid, &status, 0);
-    if (r == -1)
-      return -errno;
+      r =waitpid(pid, &status, 0);
+      if (r == -1)
+        return -errno;
 
-    // Use WIFEXITED to check the result
-    if (!WIFEXITED(status))
-      return status;
-  }
+      // Use WIFEXITED to check the result
+      if (!WIFEXITED(status))
+        return status;
+    }
 
   return 0;
 }
