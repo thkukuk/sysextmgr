@@ -75,9 +75,8 @@ varlink_list_images (const char *url)
   sd_json_variant *result;
   const char *error_id = NULL;
   int r;
-  struct libscols_table *table;
-  struct libscols_line *line;
-  FILE *out;
+  struct libscols_table *table = NULL;
+  struct libscols_line *line = NULL;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
