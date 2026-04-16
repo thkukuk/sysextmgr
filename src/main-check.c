@@ -66,7 +66,6 @@ varlink_check(const char *url, const char *prefix)
   int r;
   struct libscols_table *table;
   struct libscols_line *line;
-  FILE *out;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
@@ -215,29 +214,7 @@ varlink_check(const char *url, const char *prefix)
     }
 
   /* Setup Pager and Print */
-  out = setup_pager();
-
-   if (out == stdout)
-     {
-        /* Standard print if no pager */
-        scols_print_table(table);
-     }
-   else
-     {
-        /* Redirect stdout to the pager pipe */
-        int original_stdout = dup(STDOUT_FILENO);
-        dup2(fileno(out), STDOUT_FILENO);
-
-        /* Now this prints to the PAGER because stdout points there */
-        scols_print_table(table);
-
-        /* Flush and restore stdout */
-        fflush(stdout);
-        dup2(original_stdout, STDOUT_FILENO);
-        close(original_stdout);
-
-        pclose(out);
-    }
+  pager(table,"");
 
   scols_unref_table(table);
 

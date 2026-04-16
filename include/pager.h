@@ -1,3 +1,3 @@
-#include <stdio.h>
+#include <libsmartcols/libsmartcols.h>
 
-FILE* setup_pager(void);
+void pager(struct libscols_table *tb, const char *fooder);
