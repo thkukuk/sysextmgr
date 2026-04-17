@@ -400,15 +400,9 @@ image_manifest_from_url(const char *url, const char *image_name,
       return -ENOENT;
     }
 
+  /* There is currently only one entry. see load_manifest in mkosi-manifest.c */
   if (images[1] == NULL)
       *res = TAKE_PTR(images[0]);
-  else
-    {
-      /* XXX go through the list and search the corret image */
-      /* XXX we cannot use TAKE_PTR else the rest of the list will not be free'd */
-      log_msg(LOG_ERR, "More than one entry found, not implemented yet!");
-      exit(EXIT_FAILURE);
-    }
 
   return 0;
 }
