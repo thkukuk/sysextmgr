@@ -29,34 +29,3 @@ void unlink_tempfilep(char (*p)[]) {
         if (!endswith(*p, ".XXXXXX"))
                 (void) unlink(*p);
 }
-
-int mkdtemp_malloc(const char *template, char **ret) {
-        _cleanup_ (freep) char *p = NULL;
-
-        assert(ret);
-
-        if (template)
-                p = strdup(template);
-        else {
-#if 0 /* XXX */
-                const char *tmp;
-		int r;
-
-                r = tmp_dir(&tmp);
-                if (r < 0)
-                        return r;
-
-                p = path_join(tmp, "XXXXXX");
-#else
-		return -EINVAL;
-#endif
-        }
-        if (!p)
-                return -ENOMEM;
-
-        if (!mkdtemp(p))
-                return -errno;
-
-        *ret = TAKE_PTR(p);
-        return 0;
-}
