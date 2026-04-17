@@ -94,5 +94,5 @@ extract(const char *path, const char *name, int outfd)
     }
 
   posix_spawn_file_actions_destroy(&actions);
-  return r;
+  return 0;
 }
