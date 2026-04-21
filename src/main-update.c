@@ -143,8 +143,8 @@ varlink_update (const char *url, const char *prefix)
       table = scols_new_table();
       if (!table)
         {
-	  fprintf(stderr, "Failed to allocate table\n");
-	  return -EIO;
+          fprintf(stderr, "Failed to allocate table\n");
+          return -EIO;
         }
 
       // Define Column Headers

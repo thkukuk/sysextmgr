@@ -120,33 +120,33 @@ static bool is_valid_utf8(const char *str) {
     while (*bytes)
       {
         if (bytes[0] <= 0x7F)
-	  {
+          {
             /* 1-byte sequence (ASCII: 0xxxxxxx) */
             bytes += 1;
           }
-	else if ((bytes[0] & 0xE0) == 0xC0)
-	  {
+        else if ((bytes[0] & 0xE0) == 0xC0)
+          {
             /* 2-byte sequence (110xxxxx 10xxxxxx) */
             if ((bytes[1] & 0xC0) != 0x80 || (bytes[0] & 0x1E) == 0) return false;
             bytes += 2;
           }
-	else if ((bytes[0] & 0xF0) == 0xE0)
-	  {
+        else if ((bytes[0] & 0xF0) == 0xE0)
+          {
             /* 3-byte sequence (1110xxxx 10xxxxxx 10xxxxxx) */
             if ((bytes[1] & 0xC0) != 0x80 || (bytes[2] & 0xC0) != 0x80) return false;
             /* Protect against surrogate pairs and overlong encoding */
             if (bytes[0] == 0xE0 && (bytes[1] & 0x20) == 0) return false;
             bytes += 3;
           }
-	else if ((bytes[0] & 0xF8) == 0xF0)
-	  {
+        else if ((bytes[0] & 0xF8) == 0xF0)
+          {
             /* 4-byte sequence (11110xxx 10xxxxxx 10xxxxxx 10xxxxxx) */
             if ((bytes[1] & 0xC0) != 0x80 || (bytes[2] & 0xC0) != 0x80 || (bytes[3] & 0xC0) != 0x80) return false;
             if (bytes[0] == 0xF0 && (bytes[1] & 0x30) == 0) return false;
             bytes += 4;
           }
-	else
-	  {
+        else
+          {
             /* Invalid start byte */
             return false;
           }

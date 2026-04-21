@@ -206,10 +206,10 @@ varlink_check(const char *url, const char *prefix)
 	      scols_line_sprintf(line, 1, "%s", e.new_name);
             }
 	  else if (arg_verbose)
-	    {
+            {
 	      scols_line_sprintf(line, 0, "%s", e.old_name);
 	      scols_line_sprintf(line, 1, "No compatible newer version found");
-	    }
+            }
 	}
     }
 
