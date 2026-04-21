@@ -252,24 +252,24 @@ image_read_metadata(const char *image_name, struct image_deps **res)
       fd = open(cache_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
 
       if (fd < 0)
-	{
+        {
           log_msg(LOG_ERR, "Cannot open filename %s: %s", cache_filename, strerror (errno));
 	  return -1;
-	}
+        }
 
       r = extract(SYSEXT_STORE_DIR, image_name, fd);
       if (r < 0)
-	{
+        {
           log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
 		  image_name, strerror(-r));
 	  return r;
-	}
+        }
       else if (r > 0)
         {
           log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
 		  image_name, r);
 	  return -EINVAL;
-	}
+        }
     }
 
   r = load_ext_release(cache_filename, &image);
