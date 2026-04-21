@@ -61,13 +61,13 @@ extract(const char *path, const char *name, int outfd)
       r = posix_spawn(&pid, SYSTEMD_DISSECT_PATH, &actions, NULL, (char *const *)cmdline, environ);
 
       if (r != 0)
-	{
+        {
           log_msg(LOG_ERR, "Cannot start extract: %s\n", strerror(r));
           posix_spawn_file_actions_destroy(&actions);
           return r;
-	}
+        }
       else
-	{
+        {
           /* waiting for child process */
           int status;
 
@@ -76,14 +76,14 @@ extract(const char *path, const char *name, int outfd)
             {
               posix_spawn_file_actions_destroy(&actions);
 	      return -errno;
-	    }
+            }
 
 	  // Use WIFEXITED to check the result
           if (!WIFEXITED(status))
             {
               posix_spawn_file_actions_destroy(&actions);
               return status;
-	    }
+            }
         }
     }
   else
