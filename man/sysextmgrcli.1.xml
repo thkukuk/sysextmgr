@@ -35,7 +35,110 @@
   </refsect1>
 
   <refsect1>
-    <title>Commands</title>
+    <title>Commands for using systemd-sysext images</title>
+    <variablelist>
+      <varlistentry>
+        <term><command>list</command></term>
+        <listitem>
+          <para>List all images and report whether they are compatible.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-a</option>, <option>--all</option></term>
+              <listitem><para>List images with incompatible architecture too.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL with sysext images.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-v</option>, <option>--verbose</option></term>
+              <listitem><para>Enable verbose output.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>check</command></term>
+        <listitem>
+          <para>Check if updates are available and all installed images are compatible with the installed OS.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-p</option>, <option>--prefix</option></term>
+              <listitem><para>Prefix to a different root directory.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Don't print the list of images, report status via return values.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-v</option>, <option>--verbose</option></term>
+              <listitem><para>Enable verbose output.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>install</command> <replaceable>NAME...</replaceable></term>
+        <listitem>
+          <para>Install the newest compatible sysext image.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL containing the sysext images.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-v</option>, <option>--verbose</option></term>
+              <listitem><para>Enable verbose output.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cleanup</command></term>
+        <listitem>
+          <para>Check all snapshots for referenced images and remove no longer used ones.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Return 0 if images were removed, otherwise ENODATA.</para></listitem>
+            </varlistentry>
+           <varlistentry>
+              <term><option>-v</option>, <option>--verbose</option></term>
+              <listitem><para>Enable verbose output.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><command>update</command></term>
+        <listitem>
+          <para>Check if newer images are available and update them.</para>
+          <variablelist>
+            <varlistentry>
+              <term><option>-p</option>, <option>--prefix</option></term>
+              <listitem><para>Prefix to a different root directory.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-q</option>, <option>--quiet</option></term>
+              <listitem><para>Return 0 if updates exist, else ENODATA.</para></listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>-u</option>, <option>--url URL</option></term>
+              <listitem><para>Remote directory URL with sysext images.</para></listitem>
+            </varlistentry>
+          </variablelist>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Administration commands</title>
+
     <variablelist>
       <varlistentry>
         <term><command>create-json</command></term>
@@ -59,36 +162,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>check</command></term>
-        <listitem>
-          <para>Check if updates are available and all installed images are compatible with the installed OS.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>-p</option>, <option>--prefix</option></term>
-              <listitem><para>Prefix to a different root directory.</para></listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>-q</option>, <option>--quiet</option></term>
-              <listitem><para>Don't print the list of images, report status via return values.</para></listitem>
-            </varlistentry>
-          </variablelist>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>cleanup</command></term>
-        <listitem>
-          <para>Check all snapshots for referenced images and remove no longer used ones.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>-q</option>, <option>--quiet</option></term>
-              <listitem><para>Return 0 if images were removed, otherwise ENODATA.</para></listitem>
-            </varlistentry>
-          </variablelist>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><command>dump-json</command> <replaceable>FILE...</replaceable></term>
         <listitem>
           <para>Dump the content of the specified JSON files.</para>
@@ -99,36 +172,6 @@
         <term><command>dump-manifest</command> <replaceable>FILE...</replaceable></term>
         <listitem>
           <para>Dump the content of the specified manifest files.</para>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>install</command> <replaceable>NAME...</replaceable></term>
-        <listitem>
-          <para>Install the newest compatible sysext image.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>-u</option>, <option>--url URL</option></term>
-              <listitem><para>Remote directory URL containing the sysext images.</para></listitem>
-            </varlistentry>
-          </variablelist>
-        </listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><command>list</command></term>
-        <listitem>
-          <para>List all images and report whether they are compatible.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>-u</option>, <option>--url URL</option></term>
-              <listitem><para>Remote directory URL with sysext images.</para></listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>-v</option>, <option>--verbose</option></term>
-              <listitem><para>Enable verbose output.</para></listitem>
-            </varlistentry>
-          </variablelist>
         </listitem>
       </varlistentry>
 
@@ -145,26 +188,6 @@
         </listitem>
       </varlistentry>
 
-      <varlistentry>
-        <term><command>update</command></term>
-        <listitem>
-          <para>Check if newer images are available and update them.</para>
-          <variablelist>
-            <varlistentry>
-              <term><option>-p</option>, <option>--prefix</option></term>
-              <listitem><para>Prefix to a different root directory.</para></listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>-q</option>, <option>--quiet</option></term>
-              <listitem><para>Return 0 if updates exist, else ENODATA.</para></listitem>
-            </varlistentry>
-            <varlistentry>
-              <term><option>-u</option>, <option>--url URL</option></term>
-              <listitem><para>Remote directory URL with sysext images.</para></listitem>
-            </varlistentry>
-          </variablelist>
-        </listitem>
-      </varlistentry>
     </variablelist>
   </refsect1>
 

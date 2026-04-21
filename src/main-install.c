@@ -161,5 +161,8 @@ main_install(int argc, char **argv)
 	}
     }
 
+  printf("Installed imgages are not activated automatically.\n");
+  printf("Activation is managed by systemd-sysext.\n");
+
   return EXIT_SUCCESS;
 }
