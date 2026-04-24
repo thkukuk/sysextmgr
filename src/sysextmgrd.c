@@ -170,14 +170,14 @@ static bool env_assignment_is_valid(const char *e) {
     /* 2. Validate the Variable Name (Key) */
     /* Rules: Must not start with a digit, allowed: [A-Z, a-z, 0-9, _] */
     if (isdigit((unsigned char)*e))
-        return false;
+      return false;
 
     for (const char *p = e; p < eq; p++)
       {
         if (!isalnum((unsigned char)*p) && *p != '_')
-	  {
+          {
             return false;
-	  }
+          }
       }
 
     /* 3. Validate UTF-8 integrity of the entire string */
@@ -189,9 +189,9 @@ static bool env_assignment_is_valid(const char *e) {
     for (const char *p = eq + 1; *p != '\0'; p++)
       {
         if (iscntrl((unsigned char)*p))
-	  {
+          {
             return false;
-	  }
+          }
       }
 
     return true;
