@@ -4,11 +4,14 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <libsmartcols/libsmartcols.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
 #include "varlink-client.h"
+#include "pager.h"
 
+static bool arg_verbose = false;
 static bool arg_quiet = false;
 
 struct update {
@@ -55,28 +58,42 @@ varlink_update (const char *url, const char *prefix)
   sd_json_variant *result;
   const char *error_id = NULL;
   int r;
+  struct libscols_table *table = NULL;
+  struct libscols_line *line = NULL;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
     return r;
 
-  /* XXX add Verbose */
   if (url)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+          return r;
         }
     }
   if (prefix)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
+  if (arg_verbose)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("Verbose", SD_JSON_BUILD_BOOLEAN(arg_verbose)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
         }
     }
 
@@ -120,9 +137,21 @@ varlink_update (const char *url, const char *prefix)
       return -EINVAL;
     }
 
-  /* XXX Use table_print_with_pager */
   if (!arg_quiet && sd_json_variant_elements(p.contents_json) > 0)
-    printf ("Old image -> New image\n");
+    {
+      /* Initialize the table */
+      table = scols_new_table();
+      if (!table)
+        {
+          fprintf(stderr, "Failed to allocate table\n");
+          return -EIO;
+        }
+
+      // Define Column Headers
+      scols_table_new_column(table, "Old image", 0, 0);
+      scols_table_new_column(table, "New image", 0, 0);
+      scols_table_set_column_separator(table, " -> ");
+    }
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -152,7 +181,19 @@ varlink_update (const char *url, const char *prefix)
         }
 
       if (!arg_quiet)
-	printf ("%s -> %s\n", e.old_name, strna(e.new_name));
+	{
+          line = scols_table_new_line(table, NULL);
+          scols_line_sprintf(line, 0, "%s", e.old_name);
+          scols_line_sprintf(line, 1, "%s", strna(e.new_name));
+	}
+    }
+
+  if (table)
+    {
+      /* Setup Pager and Print */
+      pager(table,"");
+
+      scols_unref_table(table);
     }
 
   return 0;
@@ -164,13 +205,14 @@ main_update(int argc, char **argv)
   struct option const longopts[] = {
     {"url", required_argument, NULL, 'u'},
     {"quiet", no_argument, NULL, 'q'},
+    {"verbose", no_argument, NULL, 'v'},
     {"prefix", required_argument, NULL, 'p'},
     {NULL, 0, NULL, '\0'}
   };
   char *url = NULL, *prefix = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "p:qu:", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "p:qu:v", longopts, NULL)) != -1)
     {
       switch (c)
         {
@@ -179,6 +221,9 @@ main_update(int argc, char **argv)
           break;
 	case 'p':
 	  prefix = optarg;
+	  break;
+	case 'v':
+	  arg_verbose = true;
 	  break;
 	case 'q':
 	  arg_quiet = true;

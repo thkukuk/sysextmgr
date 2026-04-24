@@ -4,10 +4,12 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <libsmartcols/libsmartcols.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
 #include "varlink-client.h"
+#include "pager.h"
 
 static bool arg_verbose = false;
 static bool arg_quiet = false;
@@ -62,6 +64,8 @@ varlink_check(const char *url, const char *prefix)
   bool update_available = false;
   bool broken_images = false;
   int r;
+  struct libscols_table *table = NULL;
+  struct libscols_line *line;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
@@ -69,8 +73,8 @@ varlink_check(const char *url, const char *prefix)
 
   if (url)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("URL", SD_JSON_BUILD_STRING(url)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
@@ -78,8 +82,8 @@ varlink_check(const char *url, const char *prefix)
     }
   if (prefix)
     {
-      r = sd_json_buildo(&params,
-                         SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
+      r = sd_json_variant_merge_objectbo(&params,
+					 SD_JSON_BUILD_PAIR("Prefix", SD_JSON_BUILD_STRING(prefix)));
       if (r < 0)
         {
           fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
@@ -144,7 +148,6 @@ varlink_check(const char *url, const char *prefix)
       return -EINVAL;
     }
 
-  /* XXX Use table_print_with_pager */
   bool header_printed = false;
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_update); i++)
     {
@@ -180,21 +183,58 @@ varlink_check(const char *url, const char *prefix)
 	{
 	  if ((e.new_name || arg_verbose) && !header_printed)
 	    {
-	      printf ("Old image -> New image\n");
+              /* Initialize the table */
+	      table = scols_new_table();
+	      if (!table)
+                {
+                  fprintf(stderr, "Failed to allocate table\n");
+                  return -EIO;
+                }
+
+              // Define Column Headers
+	      scols_table_new_column(table, "Old image", 0, 0);
+	      scols_table_new_column(table, "New image", 0, 0);
+	      scols_table_set_column_separator(table, " -> ");
+
 	      header_printed = true;
 	    }
 
+          line = scols_table_new_line(table, NULL);
 	  if (e.new_name)
-	    printf ("%s -> %s\n", e.old_name, e.new_name);
-	  else
-	    if (arg_verbose)
-	      printf ("%s -> No compatible newer version found\n", e.old_name);
+            {
+	      scols_line_sprintf(line, 0, "%s", e.old_name);
+	      scols_line_sprintf(line, 1, "%s", e.new_name);
+            }
+	  else if (arg_verbose)
+            {
+	      scols_line_sprintf(line, 0, "%s", e.old_name);
+	      scols_line_sprintf(line, 1, "No compatible newer version found");
+            }
 	}
     }
 
-  /* XXX Use table_print_with_pager */
+  if (header_printed)
+    {
+      /* Setup Pager and Print */
+      pager(table,"");
+
+      scols_unref_table(table);
+      table = NULL;
+    }
+
   if (!arg_quiet && sd_json_variant_elements(p.contents_broken) > 0)
-    printf ("Incompatible installed images without update:\n");
+  {
+    /* Initialize the table */
+    table = scols_new_table();
+    if (!table)
+    {
+      fprintf(stderr, "Failed to allocate table\n");
+      return -EIO;
+    }
+
+    // Define Column Headers
+    scols_table_new_column(table, "Incompatible installed images without update:", 0, 0);
+  }
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_broken); i++)
     {
@@ -222,7 +262,18 @@ varlink_check(const char *url, const char *prefix)
 	broken_images = true;
 
       if (!arg_quiet && image_name)
-	printf ("%s\n", image_name);
+        {
+          line = scols_table_new_line(table, NULL);
+          scols_line_sprintf(line, 0, "%s", image_name);
+        }
+    }
+
+  if (table)
+    {
+      /* Setup Pager and Print */
+      pager(table,"");
+
+      scols_unref_table(table);
     }
 
   /* no images for the installed version available */

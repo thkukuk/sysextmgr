@@ -60,6 +60,9 @@ tmpfilesdir = prefixdir / 'lib/tmpfiles.d'
 sysextstoredir = get_option('sysextstoredir')
 conf.set_quoted('SYSEXT_STORE_DIR', sysextstoredir)
 
+sysextcachemetadir = get_option('sysextcachemetadir')
+conf.set_quoted('SYSEXT_CACHE_META_DIR', sysextcachemetadir)
+
 extensionsdir = get_option('extensionsdir')
 conf.set_quoted('EXTENSIONS_DIR', extensionsdir)
 
@@ -67,6 +70,7 @@ tukitplugindir = get_option('tukitplugindir')
 conf.set_quoted('TUKITPLUGIN_DIR', tukitplugindir)
 
 libeconf = dependency('libeconf', version : '>=0.7.5', required : true)
+smartcols = dependency('smartcols', required : true)
 libsystemd = dependency('libsystemd', version: '>= 257', required : true)
 libz = dependency('zlib', required : true)
 #libzio = dependency('libzio', required : true)
@@ -77,7 +81,8 @@ inc = include_directories(['include'])
 sysextmgrcli_c = ['src/sysextmgrcli.c', 'src/json-common.c',
   'src/main-check.c', 'src/main-list.c', 'src/main-install.c',
   'src/main-update.c', 'src/main-cleanup.c', 'src/image-deps.c',
-  'src/main-tukit-plugin.c', 'src/mkosi-manifest.c', 'src/varlink-client.c']
+  'src/main-tukit-plugin.c', 'src/mkosi-manifest.c', 'src/varlink-client.c',
+  'lib/pager.c']
 sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
   'src/mkdir_p.c', 'src/osrelease.c', 'src/images-list.c', 'src/image-deps.c',
   'src/extrelease.c', 'src/extract.c', 'src/download.c', 'src/log_msg.c',
@@ -89,7 +94,7 @@ sysextmgrd_c = ['src/sysextmgrd.c', 'src/varlink-org.openSUSE.sysextmgr.c',
 executable('sysextmgrcli',
            sysextmgrcli_c,
            include_directories : inc,
-           dependencies : [libeconf, libsystemd, libzio, libz],
+           dependencies : [libeconf, libsystemd, libzio, libz, smartcols],
            install : true)
 
 if get_option('tukit-plugin')

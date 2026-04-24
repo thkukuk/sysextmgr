@@ -14,5 +14,5 @@ extern int extension_release_validate(
                 const char *name,
 		const struct osrelease *host_os_release,
                 const char *host_extension_scope,
-		const struct image_deps *extension, 
-		bool verbose);
+		const struct image_deps *extension);
+extern int extention_architecture_compatible(const char *architecture);

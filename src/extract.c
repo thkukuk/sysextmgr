@@ -2,6 +2,8 @@
 
 #include "basics.h"
 
+#include <spawn.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
@@ -11,17 +13,21 @@
 #include <sys/wait.h>
 
 #include "download.h"
+#include "log_msg.h"
 #include "extract.h"
 
 #define SYSTEMD_DISSECT_PATH "/usr/bin/systemd-dissect"
 
-/* XXX see sysupdate-resource.c/download_manifest */
+// External environment array
+extern char **environ;
+
 int
 extract(const char *path, const char *name, int outfd)
 {
   _cleanup_free_ char *fn = NULL, *erf = NULL;
   pid_t pid;
-  int status, r;
+  posix_spawn_file_actions_t actions;
+  int r;
 
   if (!endswith(name, ".raw") && !endswith(name, ".img"))
     return -EINVAL;
@@ -36,41 +42,57 @@ extract(const char *path, const char *name, int outfd)
   /* remove .raw/.img */
   erf[strlen(erf) - 4] = '\0';
 
-  /* XXX safe_fork_full() */
-  pid = fork();
-  if (pid < 0)
-    return -errno;
+  const char *const cmdline[] = {
+	  SYSTEMD_DISSECT_PATH,
+	  "--copy-from",
+	  fn,
+	  erf,
+	  "-",
+	  NULL
+  };
 
-  if (pid == 0)
+  posix_spawn_file_actions_init(&actions);
+
+  /* Copy 'outfd' to FD 1 (stdout) of the new process. */
+  /* The parent process does not touch the original 'outfd'. */
+  r = posix_spawn_file_actions_adddup2(&actions, outfd, STDOUT_FILENO);
+  if (r == 0)
     {
-      const char *const cmdline[] = {
-	SYSTEMD_DISSECT_PATH,
-	"--copy-from",
-	fn,
-	erf,
-	"-",
-	NULL
-      };
-      close(1);
-      r = dup2(outfd, 1);
-      if (r < 0)
-	return r;
+      r = posix_spawn(&pid, SYSTEMD_DISSECT_PATH, &actions, NULL, (char *const *)cmdline, environ);
 
-      /* XXX (void) close_all_fds(NULL, 0); */
-      /* XXX r = invoke_callout_binary(SYSTEMD_PULL_PATH, (char *const*) cmdline); */
+      if (r != 0)
+        {
+          log_msg(LOG_ERR, "Cannot start extract: %s\n", strerror(r));
+          posix_spawn_file_actions_destroy(&actions);
+          return r;
+        }
+      else
+        {
+          /* waiting for child process */
+          int status;
 
-      execv (SYSTEMD_DISSECT_PATH, (char *const *)cmdline);
-      fprintf(stderr, "execl(): %s", strerror (errno));
-      exit (0);
+          r =waitpid(pid, &status, 0);
+          if (r == -1)
+            {
+              posix_spawn_file_actions_destroy(&actions);
+	      return -errno;
+            }
+
+	  // Use WIFEXITED to check the result
+          if (!WIFEXITED(status))
+            {
+              posix_spawn_file_actions_destroy(&actions);
+              return status;
+            }
+        }
+    }
+  else
+    {
+      log_msg(LOG_ERR, "Cannot set stdout: %s\n", strerror(r));
+      posix_spawn_file_actions_destroy(&actions);
+      return r;
     }
 
-  /* r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG); */
-  r = waitpid (pid, &status, 0);
-  if (r == -1)
-    return -errno;
-
-  if (WIFEXITED(status))
-    return WEXITSTATUS(status);
-
+  posix_spawn_file_actions_destroy(&actions);
   return 0;
 }

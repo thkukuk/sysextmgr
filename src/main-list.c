@@ -4,12 +4,15 @@
 
 #include <getopt.h>
 #include <stdbool.h>
+#include <libsmartcols/libsmartcols.h>
 
 #include "basics.h"
 #include "sysextmgr.h"
 #include "varlink-client.h"
+#include "pager.h"
 
 static bool arg_verbose = false;
+static bool arg_all = false;
 
 struct list_images {
   bool success;
@@ -72,12 +75,13 @@ varlink_list_images (const char *url)
   sd_json_variant *result;
   const char *error_id = NULL;
   int r;
+  struct libscols_table *table = NULL;
+  struct libscols_line *line = NULL;
 
   r = connect_to_sysextmgrd(&link, _VARLINK_SYSEXTMGR_SOCKET);
   if (r < 0)
     return r;
 
-  /* XXX add Verbose */
   if (url)
     {
       r = sd_json_buildo(&params,
@@ -85,8 +89,32 @@ varlink_list_images (const char *url)
       if (r < 0)
 	{
 	  fprintf(stderr, "Failed to build param list: %s\n", strerror(-r));
+	  return r;
 	}
     }
+
+  if (arg_verbose)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("Verbose", SD_JSON_BUILD_BOOLEAN(arg_verbose)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
+  if (arg_all)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("All", SD_JSON_BUILD_BOOLEAN(arg_all)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add \"all\" to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
+
   r = sd_varlink_call(link, "org.openSUSE.sysextmgr.ListImages", params, &result, &error_id);
   if (r < 0)
     {
@@ -127,8 +155,22 @@ varlink_list_images (const char *url)
       return -EINVAL;
     }
 
-  /* XXX Use table_print_with_pager */
-  printf (" R L I C  # Name\n");
+  /* Initialize the table */
+  table = scols_new_table();
+  if (!table)
+    {
+      fprintf(stderr, "Failed to allocate table\n");
+      return -EIO;
+    }
+
+  // Define Column Headers
+  scols_table_new_column(table, "R", 1.1, 0);
+  scols_table_new_column(table, "L", 1.1, 0);
+  scols_table_new_column(table, "I", 1.1, 0);
+  scols_table_new_column(table, "C", 1.1, 0);
+  scols_table_new_column(table, " #", 2, 0);
+  scols_table_new_column(table, "Name", 0, SCOLS_FL_TRUNC);
+  scols_table_set_column_separator(table, " | ");
 
   for (size_t i = 0; i < sd_json_variant_elements(p.contents_json); i++)
     {
@@ -179,30 +221,22 @@ varlink_list_images (const char *url)
           return r;
         }
 
-      if (e.remote)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.local)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.installed)
-	printf(" x");
-      else
-	printf("  ");
-      if (e.compatible)
-	printf(" x");
-      else
-	printf("  ");
+      line = scols_table_new_line(table, NULL);
+      scols_line_sprintf(line, 0, "%s", e.remote ? "X" : " ");
+      scols_line_sprintf(line, 1, "%s", e.local ? "X" : " ");
+      scols_line_sprintf(line, 2, "%s", e.installed ? "X" : " ");
+      scols_line_sprintf(line, 3, "%s", e.compatible ? "X" : " ");
       if (e.refcount > 0)
-	printf(" %2d", e.refcount);
+        scols_line_sprintf(line, 4, "%2d", e.refcount);
       else
-	printf("  -");
-      printf(" %s\n", e.image_name);
+        scols_line_sprintf(line, 4, " -");
+      scols_line_sprintf(line, 5, "%s", e.image_name);
     }
 
-  printf("R = remote, L = local, I = installed, C = commpatible, # = used in snapshots\n");
+  /* Setup Pager and Print */
+  pager(table, "R = remote, L = local, I = installed, C = commpatible, # = used in snapshots");
+
+  scols_unref_table(table);
 
   return 0;
 }
@@ -218,7 +252,7 @@ main_list(int argc, char **argv)
   char *url = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "u:v", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "u:va", longopts, NULL)) != -1)
     {
       switch (c)
         {
@@ -227,6 +261,9 @@ main_list(int argc, char **argv)
           break;
 	case 'v':
 	  arg_verbose = true;
+	  break;
+	case 'a':
+	  arg_all = true;
 	  break;
         default:
           usage(EXIT_FAILURE);

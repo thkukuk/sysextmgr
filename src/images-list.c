@@ -21,6 +21,7 @@
 #include "strv.h"
 #include "images-list.h"
 #include "log_msg.h"
+#include "mkdir_p.h"
 
 static int
 readlink_malloc(const char *path, const char *name, char **ret)
@@ -97,7 +98,7 @@ discover_images(const char *path, char ***result)
     {
       *result = malloc((num_dirs+1) * sizeof(char *));
       if (*result == NULL)
-	oom();
+	return -ENOMEM;
       (*result)[num_dirs] = NULL;
 
       for (int i = 0; i < num_dirs; i++)
@@ -121,7 +122,7 @@ discover_images(const char *path, char ***result)
 	  (*result)[i] = strdup(de[i]->d_name);
 
 	if ((*result)[i] == NULL)
-	  oom();
+          return -ENOMEM;
 	free(de[i]);
       }
       free(de);
@@ -152,7 +153,8 @@ snapshot_list(const char *snapshot, struct image_entry **list, size_t n)
     return -ENOMEM;
 
   int num_dirs = scandir(path, &de, image_filter, NULL /* alphasort */);
-  if (num_dirs < 0)
+
+  if (num_dirs < 0 && errno != ENOENT)
     return -errno;
 
   for (int i = 0; i < num_dirs; i++)
@@ -221,30 +223,56 @@ static int
 image_read_metadata(const char *image_name, struct image_deps **res)
 {
   _cleanup_(free_image_depsp) struct image_deps *image = NULL;
-  _cleanup_(unlink_tempfilep) char tmpfn[] = "/tmp/sysext-image-extrelease.XXXXXX";
+  _cleanup_free_ char *cache_filename = NULL;
   _cleanup_close_ int fd = -EBADF;
+  struct stat st;
   int r;
 
   assert(image_name);
   assert(res);
 
-  fd = mkostemp_safe(tmpfn);
-
-  r = extract(SYSEXT_STORE_DIR, image_name, fd);
+  r = mkdir_p(SYSEXT_CACHE_META_DIR, 0755);
   if (r < 0)
     {
-      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
-	      image_name, strerror(-r));
+      log_msg(LOG_ERR, "Cannot create %s: %s",
+	      SYSEXT_CACHE_META_DIR, strerror(-r));
       return r;
     }
-  else if (r > 0)
+
+  r = join_path(SYSEXT_CACHE_META_DIR, image_name, &cache_filename);
+  if (r < 0)
     {
-      log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
-	      image_name, r);
-      return -EINVAL;
+      log_msg(LOG_ERR, "Cannot create filename: %s", strerror(-r));
+      return r;
     }
 
-  r = load_ext_release(tmpfn, &image);
+  if (stat(cache_filename, &st) != 0)
+    {
+      /* The meta data is not cached. So extract it from image. */
+      fd = open(cache_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+
+      if (fd < 0)
+        {
+          log_msg(LOG_ERR, "Cannot open filename %s: %s", cache_filename, strerror (errno));
+	  return -1;
+        }
+
+      r = extract(SYSEXT_STORE_DIR, image_name, fd);
+      if (r < 0)
+        {
+          log_msg(LOG_ERR, "Failed to extract extension-release from '%s': %s",
+		  image_name, strerror(-r));
+	  return r;
+        }
+      else if (r > 0)
+        {
+          log_msg(LOG_ERR, "Failed to extract extension-release from '%s': systemd-dissect failed (%i)",
+		  image_name, r);
+	  return -EINVAL;
+        }
+    }
+
+  r = load_ext_release(cache_filename, &image);
   if (r < 0)
     return r;
 
@@ -294,7 +322,10 @@ image_json_from_url(const char *url, const char *image_name,
   _cleanup_(free_image_deps_list) struct image_deps **images = NULL;
   r = load_image_json(fd, tmpfn, &images);
   if (r < 0)
-    return r;
+    {
+      log_msg(LOG_ERR, "Failed load_image_json failed: %s", strerror(-r));
+      return r;
+    }
 
   if (images == NULL || images[0] == NULL)
     {
@@ -369,15 +400,9 @@ image_manifest_from_url(const char *url, const char *image_name,
       return -ENOENT;
     }
 
+  /* There is currently only one entry. see load_manifest in mkosi-manifest.c */
   if (images[1] == NULL)
       *res = TAKE_PTR(images[0]);
-  else
-    {
-      /* XXX go through the list and search the corret image */
-      /* XXX we cannot use TAKE_PTR else the rest of the list will not be free'd */
-      log_msg(LOG_ERR, "More than one entry found, not implemented yet!");
-      exit(EXIT_FAILURE);
-    }
 
   return 0;
 }
@@ -421,7 +446,7 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
   size_t cur_entry = 0, max_entry = 10;
   *result = malloc((max_entry + 1) * sizeof(char *));
   if (*result == NULL)
-    oom();
+    return -ENOMEM;
   (*result)[0] = NULL;
 
   _cleanup_(freep) char *line = NULL;
@@ -446,11 +471,11 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 	      max_entry = max_entry * 2;
 	      *result = realloc(*result, (max_entry + 1) * sizeof(char *));
 	      if (*result == NULL)
-		oom();
+		return -ENOMEM;
 	    }
 	  (*result)[cur_entry] = strdup(p);
 	  if ((*result)[cur_entry] == NULL)
-	    oom();
+	    return -ENOMEM;
 	  cur_entry++;
 	  (*result)[cur_entry] = NULL;
 	}
@@ -462,7 +487,7 @@ image_list_from_url(const char *url, char ***result, bool verify_signature)
 int
 image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 		      const char *filter, bool verify_signature,
-		      const struct osrelease *osrelease, bool verbose)
+		      const struct osrelease *osrelease)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -527,7 +552,7 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 	    images[pos]->compatible =
 	      extension_release_validate(images[pos]->image_name,
 					 osrelease, "system",
-					 images[pos]->deps, verbose);
+					 images[pos]->deps);
 
 	  pos++;
 	}
@@ -544,7 +569,7 @@ image_remote_metadata(const char *url, struct image_entry ***res, size_t *nr,
 int
 image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
 		     const char *filter, const struct osrelease *osrelease,
-		     bool read_metadata, bool verbose)
+		     bool read_metadata)
 {
   _cleanup_strv_free_ char **list = NULL;
   _cleanup_(free_image_entry_list) struct image_entry **images = NULL;
@@ -614,7 +639,7 @@ image_local_metadata(const char *store, struct image_entry ***res, size_t *nr,
 	    images[pos]->compatible =
 	      extension_release_validate(images[pos]->image_name,
 					 osrelease, "system",
-					 images[pos]->deps, verbose);
+					 images[pos]->deps);
 
 	  pos++;
 	}

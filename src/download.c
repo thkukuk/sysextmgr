@@ -2,6 +2,8 @@
 
 #include "basics.h"
 
+#include <spawn.h>
+#include <sys/wait.h>
 #include <errno.h>
 #include <assert.h>
 #include <stdio.h>
@@ -11,6 +13,7 @@
 #include <sys/wait.h>
 
 #include "download.h"
+#include "log_msg.h"
 
 #define SYSTEMD_PULL_PATH "/usr/lib/systemd/systemd-pull"
 
@@ -56,8 +59,6 @@ join_path(const char *url, const char *suffix, char **ret)
   return 0;
 }
 
-
-/* XXX see sysupdate-resource.c/download_manifest */
 /* return value:
    < 0 : -errno (error)
    = 0 : success
@@ -68,43 +69,42 @@ download(const char *url, const char *fn, const char *destfn, bool verify_signat
 {
   _cleanup_(freep) char *fullurl = NULL;
   pid_t pid;
-  int status, r;
+  int r;
 
   r = join_path(url, fn, &fullurl);
   if (r < 0)
     return r;
 
-  /* XXX safe_fork_full() */
-  pid = fork();
-  if (pid < 0)
-    return -errno;
+  const char *const cmdline[] = {
+	  SYSTEMD_PULL_PATH,
+	  "raw",
+	  "--direct", /* just download the specified URL, don't download anything else */
+	  "--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
+	  fullurl,
+	  destfn,
+	  NULL
+  };
 
-  if (pid == 0)
+  r = posix_spawn(&pid, SYSTEMD_PULL_PATH, NULL, NULL, (char *const *)cmdline, environ);
+
+  if (r != 0)
     {
-      const char *const cmdline[] = {
-	SYSTEMD_PULL_PATH,
-	"raw",
-	"--direct",                        /* just download the specified URL, don't download anything else */
-	"--verify", verify_signature ? "signature" : "no", /* verify the manifest file */
-	fullurl,
-	destfn,
-	NULL
-      };
-      /* XXX (void) close_all_fds(NULL, 0); */
-      /* XXX r = invoke_callout_binary(SYSTEMD_PULL_PATH, (char *const*) cmdline); */
-
-      execv (SYSTEMD_PULL_PATH, (char *const *)cmdline);
-      fprintf(stderr, "execl(): %s", strerror (errno));
-      exit (0);
+      log_msg(LOG_ERR, "Cannot start download: %s\n", strerror(r));
+      return r;
     }
+  else
+    {
+      /* waiting for child process */
+      int status;
 
-  /* r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG); */
-  r = waitpid (pid, &status, 0);
-  if (r == -1)
-    return -errno;
+      r =waitpid(pid, &status, 0);
+      if (r == -1)
+        return -errno;
 
-  if (status)
-    return status;
+      // Use WIFEXITED to check the result
+      if (!WIFEXITED(status))
+        return status;
+    }
 
   return 0;
 }

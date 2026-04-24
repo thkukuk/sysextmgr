@@ -10,6 +10,7 @@
 #include "varlink-client.h"
 
 static bool arg_quiet = false;
+static bool arg_verbose = false;
 
 struct install {
   bool success;
@@ -65,7 +66,17 @@ varlink_install (const char *name, const char *url)
 	  return r;
 	}
     }
-  /* XXX add Verbose if set */
+
+  if (arg_verbose)
+    {
+      r = sd_json_variant_merge_objectbo(&params,
+                                         SD_JSON_BUILD_PAIR("Verbose", SD_JSON_BUILD_BOOLEAN(arg_verbose)));
+      if (r < 0)
+        {
+          fprintf(stderr, "Failed to add verbose to parameter list: %s\n", strerror(-r));
+          return r;
+        }
+    }
 
   r = sd_varlink_call(link, "org.openSUSE.sysextmgr.Install", params, &result, &error_id);
   if (r < 0)
@@ -107,12 +118,13 @@ main_install(int argc, char **argv)
   struct option const longopts[] = {
     {"url", required_argument, NULL, 'u'},
     {"quiet", no_argument, NULL, 'q'},
+    {"verbose", no_argument, NULL, 'v'},
     {NULL, 0, NULL, '\0'}
   };
   char *url = NULL;
   int c, r;
 
-  while ((c = getopt_long(argc, argv, "qu:", longopts, NULL)) != -1)
+  while ((c = getopt_long(argc, argv, "qu:v", longopts, NULL)) != -1)
     {
       switch (c)
         {
@@ -121,6 +133,9 @@ main_install(int argc, char **argv)
           break;
 	case 'q':
 	  arg_quiet = true;
+	  break;
+	case 'v':
+	  arg_verbose = true;
 	  break;
         default:
           usage(EXIT_FAILURE);
@@ -145,6 +160,9 @@ main_install(int argc, char **argv)
 	  return -r;
 	}
     }
+
+  printf("Installed imgages are not activated automatically.\n");
+  printf("Activation is managed by systemd-sysext.\n");
 
   return EXIT_SUCCESS;
 }

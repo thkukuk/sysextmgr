@@ -11,13 +11,6 @@
 #include "sysextmgr.h"
 
 void
-oom(void)
-{
-  fputs("ERROR: running out of memory!\n", stderr);
-  exit(EXIT_FAILURE);
-}
-
-void
 usage(int retval)
 {
   FILE *output = (retval != EXIT_SUCCESS) ? stderr : stdout;
@@ -36,11 +29,13 @@ usage(int retval)
   fputs("Options for check:\n", output);
   fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Don't print list of images but use return values\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("cleanup - Remove images no longer referenced\n", output);
   fputs("Options for cleanup:\n", output);
   fputs("  -q, --quiet           Return 0 if images got removed, else ENODATA\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("dump-json - dump content of json file\n", output);
@@ -56,12 +51,14 @@ usage(int retval)
   fputs("install - Install newest compatible sysext image\n", output);
   fputs("Options for install:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("  <name 1> <name 2>...  Names of the images to be installed\n", output);
   fputs("\n", output);
 
   fputs("list - list all images and if they are compatible\n", output);
   fputs("Options for merge-json:\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -a, --all             List images with incompatible architecture too\n", output);
   fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
@@ -76,6 +73,7 @@ usage(int retval)
   fputs("  -p, --prefix          Prefix to different root directory\n", output);
   fputs("  -q, --quiet           Return 0 if updates exist, else ENODATA\n", output);
   fputs("  -u, --url URL         Remote directory with sysext images\n", output);
+  fputs("  -v, --verbose         Verbose output\n", output);
   fputs("\n", output);
 
   fputs("Generic options:\n", output);
@@ -326,7 +324,11 @@ main_dump_json(int argc, char **argv)
 
       r = load_image_json(AT_FDCWD, argv[i], &images);
       if (r < 0)
-	return EXIT_FAILURE;
+        {
+          fprintf(stderr, "Failed load_image_json(%s): %s",
+                  argv[i], strerror(-r));
+          return EXIT_FAILURE;
+        }
 
       for (size_t j = 0; images && images[j] != NULL; j++)
 	dump_image_deps(images[j]);
