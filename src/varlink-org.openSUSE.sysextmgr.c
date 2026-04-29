@@ -137,6 +137,8 @@ SD_VARLINK_DEFINE_INTERFACE(
 		SD_VARLINK_INTERFACE_COMMENT("SysextMgr control APIs"),
 		SD_VARLINK_SYMBOL_COMMENT("Check for newer compatible images for installed onces"),
                 &vl_method_Check,
+		SD_VARLINK_SYMBOL_COMMENT("Remove no longer used images"),
+		&vl_method_Cleanup,
 		SD_VARLINK_SYMBOL_COMMENT("Install newest compatible image with this name"),
                 &vl_method_Install,
 		SD_VARLINK_SYMBOL_COMMENT("List all images including dependencies"),
