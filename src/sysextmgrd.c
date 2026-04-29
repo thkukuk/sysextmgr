@@ -31,6 +31,7 @@
 
 #include <systemd/sd-daemon.h>
 #include <systemd/sd-varlink.h>
+#include <sys/stat.h>
 
 #include "basics.h"
 #include "mkdir_p.h"
@@ -924,6 +925,7 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   _cleanup_(free_image_entryp) struct image_entry *new = NULL;
   const char *url = NULL;
   int r;
+  struct stat path_stat;
 
   log_msg(LOG_INFO, "Varlink method \"Install\" called...");
 
@@ -1045,6 +1047,10 @@ vl_method_install(sd_varlink *link, sd_json_variant *parameters,
   if (r < 0)
     return api_error(link, "Failed to create directory '%s': error - %s",
 		     config.extensions_dir, strerror(-r));
+
+  /* remove old link if exists */
+  if (lstat(linkfn, &path_stat) == 0)
+    unlink(linkfn);
 
   if (symlink(fn, linkfn) < 0)
     return api_error(link, "Error to symlink '%s' to '%s': %m", fn, linkfn);
